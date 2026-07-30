@@ -3,8 +3,10 @@ package dev.commandide.worker.execution;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
 import com.pty4j.WinSize;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +14,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public final class Pty4jTerminalProcessFactory implements TerminalProcessFactory {
+    private static final Path POSIX_KILL = Path.of("/bin/kill");
+
     @Override
     public TerminalProcess start(
             Path executable,
@@ -61,12 +65,47 @@ public final class Pty4jTerminalProcessFactory implements TerminalProcessFactory
 
         @Override
         public void terminateTree() throws InterruptedException {
-            process.descendants().forEach(ProcessHandle::destroy);
+            boolean signaledProcessGroup = signalPosixProcessGroup(process, "-TERM");
+            List<ProcessHandle> descendants = signaledProcessGroup ? List.of() : descendants(process);
+            descendants.forEach(ProcessHandle::destroy);
             process.destroy();
             if (!process.waitFor(300, TimeUnit.MILLISECONDS)) {
-                process.descendants().forEach(ProcessHandle::destroyForcibly);
+                descendants.forEach(ProcessHandle::destroyForcibly);
                 process.destroyForcibly();
                 process.waitFor(700, TimeUnit.MILLISECONDS);
+            }
+            if (signaledProcessGroup) signalPosixProcessGroup(process, "-KILL");
+        }
+
+        private static List<ProcessHandle> descendants(PtyProcess process) {
+            try {
+                return process.descendants().toList();
+            } catch (UnsupportedOperationException ignored) {
+                return List.of();
+            }
+        }
+
+        private static boolean signalPosixProcessGroup(PtyProcess process, String signal)
+                throws InterruptedException {
+            if (!Files.isExecutable(POSIX_KILL)) return false;
+            long processId = process.pid();
+            if (processId <= 0) return false;
+            try {
+                Process signalProcess = new ProcessBuilder(
+                        POSIX_KILL.toString(),
+                        signal,
+                        "--",
+                        "-" + processId)
+                        .redirectErrorStream(true)
+                        .start();
+                if (!signalProcess.waitFor(500, TimeUnit.MILLISECONDS)) {
+                    signalProcess.destroyForcibly();
+                    signalProcess.waitFor(500, TimeUnit.MILLISECONDS);
+                    return false;
+                }
+                return signalProcess.exitValue() == 0;
+            } catch (IOException | UnsupportedOperationException ignored) {
+                return false;
             }
         }
     }
