@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/manual-get.schema.json",
+  "title": "ManualGetResult",
+  "type": "object",
+  "required": ["commandId", "source", "truncated", "manual", "tldr"],
+  "additionalProperties": false,
+  "properties": {
+    "commandId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "source": { "enum": ["man", "help", "bundled"] },
+    "truncated": { "type": "boolean" },
+    "manual": {
+      "type": "object",
+      "required": ["synopsis", "sections"],
+      "additionalProperties": false,
+      "properties": {
+        "synopsis": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "sections": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "required": ["heading", "body"],
+            "additionalProperties": false,
+            "properties": {
+              "heading": { "type": "string", "minLength": 1, "maxLength": 80 },
+              "body": { "type": "string", "minLength": 1, "maxLength": 200000 }
+            }
+          }
+        }
+      }
+    },
+    "tldr": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["examples", "attribution"],
+          "additionalProperties": false,
+          "properties": {
+            "examples": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "required": ["description", "command"],
+                "additionalProperties": false,
+                "properties": {
+                  "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+                  "command": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                }
+              }
+            },
+            "attribution": {
+              "type": "object",
+              "required": ["source", "pageUrl", "sourceRevision", "retrievedAt", "copyright", "license", "licenseUrl"],
+              "additionalProperties": false,
+              "properties": {
+                "source": { "const": "tldr-pages" },
+                "pageUrl": { "type": "string", "format": "uri", "maxLength": 1000 },
+                "sourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+                "retrievedAt": { "type": "string", "format": "date" },
+                "copyright": { "type": "string", "minLength": 1, "maxLength": 300 },
+                "license": { "const": "CC-BY 4.0" },
+                "licenseUrl": { "const": "https://creativecommons.org/licenses/by/4.0/" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/structured-bookmark.schema.json",
+  "title": "StructuredBookmark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bookmarkId",
+    "name",
+    "program",
+    "parameters",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "bookmarkId": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "program": { "$ref": "shell-program.schema.json" },
+    "parameters": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "description", "required", "sensitive", "defaultValue"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "description": { "type": "string", "maxLength": 1000 },
+          "required": { "type": "boolean" },
+          "sensitive": { "type": "boolean" },
+          "defaultValue": {
+            "type": ["string", "null"],
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

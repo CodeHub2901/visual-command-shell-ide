@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.2.0",
+  "commands": [
+    {
+      "id": "cat", "executable": "cat", "versionProbeArguments": ["--version"],
+      "displayName": "cat", "summary": "Concatenate files and print their contents", "category": "Text",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"files","label":"FILE","description":"Files to read; standard input is used when omitted.","required":false,"repeatable":true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"number","flags":["-n","--number"],"description":"Number all output lines.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"show-ends","flags":["-E","--show-ends"],"description":"Display a dollar marker at the end of each line.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"show-tabs","flags":["-T","--show-tabs"],"description":"Display tab characters using caret notation.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}
+      ],
+      "examples": ["cat README.md", "cat -n app.log"],
+      "manual": {"synopsis":"cat [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Writes each file to standard output in order."},{"heading":"Safety","body":"Reads file or standard-input content without modifying it."}]}
+    },
+    {
+      "id": "cp", "executable": "cp", "versionProbeArguments": ["--version"],
+      "displayName": "cp", "summary": "Copy files and directories", "category": "Files",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id":"source","label":"SOURCE","description":"File or directory to copy.","required":true,"repeatable":false},
+        {"id":"destination","label":"DESTINATION","description":"Destination path.","required":true,"repeatable":false}
+      ],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"recursive","flags":["-r","-R","--recursive"],"description":"Copy directories recursively.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"force","flags":["-f","--force"],"description":"Remove an existing destination that cannot be opened.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["interactive"]},
+        {"id":"interactive","flags":["-i","--interactive"],"description":"Prompt before overwriting.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["force"]}
+      ],
+      "examples": ["cp source.txt backup.txt", "cp -r assets public/assets"],
+      "manual": {"synopsis":"cp [OPTION]... SOURCE DESTINATION","sections":[{"heading":"Description","body":"Copies a source path to a destination path."},{"heading":"Risk","body":"May create or overwrite destination files; review both paths before running."}]}
+    },
+    {
+      "id": "rm", "executable": "rm", "versionProbeArguments": ["--version"],
+      "displayName": "rm", "summary": "Remove files or directories", "category": "Files",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"files","label":"FILE","description":"Paths to remove.","required":true,"repeatable":true}],
+      "riskTags": ["destructive"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"recursive","flags":["-r","-R","--recursive"],"description":"Remove directories and their contents recursively.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"force","flags":["-f","--force"],"description":"Ignore nonexistent files and never prompt.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["interactive"]},
+        {"id":"interactive","flags":["-i"],"description":"Prompt before every removal.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["force"]}
+      ],
+      "examples": ["rm old.log", "rm -ri old-directory"],
+      "manual": {"synopsis":"rm [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Removes directory entries for selected paths."},{"heading":"Risk","body":"Removal may be irreversible. Recursive and force options require especially careful review."}]}
+    },
+    {
+      "id": "mkdir", "executable": "mkdir", "versionProbeArguments": ["--version"],
+      "displayName": "mkdir", "summary": "Create directories", "category": "Files",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"directories","label":"DIRECTORY","description":"Directories to create.","required":true,"repeatable":true}],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"parents","flags":["-p","--parents"],"description":"Create missing parent directories and ignore existing targets.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"verbose","flags":["-v","--verbose"],"description":"Print a message for each created directory.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"mode","flags":["-m","--mode"],"description":"Set the created directory permissions.","takesValue":true,"valueName":"MODE","repeatable":false,"combinable":false}
+      ],
+      "examples": ["mkdir output", "mkdir -p build/reports"],
+      "manual": {"synopsis":"mkdir [OPTION]... DIRECTORY...","sections":[{"heading":"Description","body":"Creates directories that do not already exist."},{"heading":"Risk","body":"Writes filesystem metadata and may create an entire parent path."}]}
+    },
+    {
+      "id": "df", "executable": "df", "versionProbeArguments": ["--version"],
+      "displayName": "df", "summary": "Report filesystem space usage", "category": "Storage",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"filesystems","label":"FILE","description":"Paths whose containing filesystems should be reported.","required":false,"repeatable":true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"human-readable","flags":["-h","--human-readable"],"description":"Print sizes in powers of 1024.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"all","flags":["-a","--all"],"description":"Include pseudo, duplicate, and inaccessible filesystems.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"type","flags":["-T","--print-type"],"description":"Print each filesystem type.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}
+      ],
+      "examples": ["df -h", "df -hT /"],
+      "manual": {"synopsis":"df [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Reports used and available space for mounted filesystems."},{"heading":"Safety","body":"Reads filesystem accounting data without modifying storage."}]}
+    },
+    {
+      "id": "du", "executable": "du", "versionProbeArguments": ["--version"],
+      "displayName": "du", "summary": "Estimate file and directory space usage", "category": "Storage",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"files","label":"FILE","description":"Paths to measure.","required":false,"repeatable":true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"human-readable","flags":["-h","--human-readable"],"description":"Print sizes in human-readable units.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"summarize","flags":["-s","--summarize"],"description":"Display only a total for each argument.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"all","flags":["-a","--all"],"description":"Write counts for all files, not just directories.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}
+      ],
+      "examples": ["du -sh .", "du -h logs"],
+      "manual": {"synopsis":"du [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Summarizes filesystem space used by files and directory trees."},{"heading":"Safety","body":"Traverses and reads filesystem metadata without modifying it."}]}
+    },
+    {
+      "id": "kill", "executable": "kill", "versionProbeArguments": ["--version"],
+      "displayName": "kill", "summary": "Send a signal to a process", "category": "Processes",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"pids","label":"PID","description":"Process identifiers to signal.","required":true,"repeatable":true}],
+      "riskTags": ["process-signal"], "shortOptionPolicy": "never",
+      "options": [
+        {"id":"signal","flags":["-s","--signal"],"description":"Select the signal by name or number.","takesValue":true,"valueName":"SIGNAL","repeatable":false,"combinable":false},
+        {"id":"list","flags":["-l","--list"],"description":"List signal names or translate a signal number.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}
+      ],
+      "examples": ["kill 1234", "kill -s TERM 1234"],
+      "manual": {"synopsis":"kill [OPTION]... PID...","sections":[{"heading":"Description","body":"Sends a selected signal to one or more processes."},{"heading":"Risk","body":"Signals can interrupt work or terminate processes; verify every process identifier."}]}
+    },
+    {
+      "id": "journalctl", "executable": "journalctl", "versionProbeArguments": ["--version"],
+      "displayName": "journalctl", "summary": "Query the systemd journal", "category": "System",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora"],
+      "arguments": [], "riskTags": ["read-only"], "shortOptionPolicy": "never",
+      "options": [
+        {"id":"unit","flags":["-u","--unit"],"description":"Show messages for the selected systemd unit.","takesValue":true,"valueName":"UNIT","repeatable":true,"combinable":false},
+        {"id":"follow","flags":["-f","--follow"],"description":"Follow new journal entries.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},
+        {"id":"lines","flags":["-n","--lines"],"description":"Show the requested number of recent entries.","takesValue":true,"valueName":"COUNT","repeatable":false,"combinable":false}
+      ],
+      "examples": ["journalctl -n 50", "journalctl -u ssh.service"],
+      "manual": {"synopsis":"journalctl [OPTIONS]...","sections":[{"heading":"Description","body":"Queries structured log entries from the systemd journal."},{"heading":"Compatibility","body":"Available on Linux systems using systemd."}]}
+    },
+    {
+      "id": "ss", "executable": "ss", "versionProbeArguments": ["-V"],
+      "displayName": "ss", "summary": "Inspect network sockets", "category": "Networking",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora"],
+      "arguments": [], "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"listening","flags":["-l","--listening"],"description":"Display listening sockets.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"tcp","flags":["-t","--tcp"],"description":"Display TCP sockets.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"udp","flags":["-u","--udp"],"description":"Display UDP sockets.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"processes","flags":["-p","--processes"],"description":"Show process information for sockets.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}
+      ],
+      "examples": ["ss -lt", "ss -lup"],
+      "manual": {"synopsis":"ss [OPTIONS]","sections":[{"heading":"Description","body":"Displays socket statistics and protocol-specific connection details."},{"heading":"Safety","body":"Inspection options read kernel networking state without changing configuration."}]}
+    },
+    {
+      "id": "curl", "executable": "curl", "versionProbeArguments": ["--version"],
+      "displayName": "curl", "summary": "Transfer data using a URL", "category": "Networking",
+      "platforms": ["linux", "macos", "windows"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"urls","label":"URL","description":"URLs to transfer.","required":true,"repeatable":true}],
+      "riskTags": ["network"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"location","flags":["-L","--location"],"description":"Follow HTTP redirects.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"silent","flags":["-s","--silent"],"description":"Suppress progress and error messages.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"fail","flags":["-f","--fail"],"description":"Fail on HTTP response codes of 400 or greater.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"output","flags":["-o","--output"],"description":"Write response data to a file.","takesValue":true,"valueName":"FILE","repeatable":true,"combinable":false}
+      ],
+      "examples": ["curl https://example.com", "curl -L -o page.html https://example.com"],
+      "manual": {"synopsis":"curl [OPTIONS] URL...","sections":[{"heading":"Description","body":"Transfers data to or from a server using a supported URL scheme."},{"heading":"Risk","body":"Communicates over the network and can write response data when output options are selected."}]}
+    },
+    {
+      "id": "chmod", "executable": "chmod", "versionProbeArguments": ["--version"],
+      "displayName": "chmod", "summary": "Change file access permissions", "category": "Permissions",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id":"mode","label":"MODE","description":"Symbolic or numeric permission mode.","required":true,"repeatable":false},
+        {"id":"files","label":"FILE","description":"Paths whose permissions should change.","required":true,"repeatable":true}
+      ],
+      "riskTags": ["system-change", "privilege"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id":"recursive","flags":["-R","--recursive"],"description":"Change files and directories recursively.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},
+        {"id":"verbose","flags":["-v","--verbose"],"description":"Report every processed file.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}
+      ],
+      "examples": ["chmod 640 config.ini", "chmod -R u+rwX project"],
+      "manual": {"synopsis":"chmod [OPTION]... MODE FILE...","sections":[{"heading":"Description","body":"Changes access mode bits for selected filesystem paths."},{"heading":"Risk","body":"Incorrect modes can expose sensitive data or make files inaccessible."}]}
+    },
+    {
+      "id": "id", "executable": "id", "versionProbeArguments": ["--version"],
+      "displayName": "id", "summary": "Print user and group identity information", "category": "Users",
+      "platforms": ["linux", "macos"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id":"users","label":"USER","description":"Users whose identity should be displayed.","required":false,"repeatable":true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "never",
+      "options": [
+        {"id":"user","flags":["-u","--user"],"description":"Print only the effective user identity.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false,"conflictsWith":["group","groups"]},
+        {"id":"group","flags":["-g","--group"],"description":"Print only the effective group identity.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false,"conflictsWith":["user","groups"]},
+        {"id":"groups","flags":["-G","--groups"],"description":"Print all group identities.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false,"conflictsWith":["user","group"]},
+        {"id":"name","flags":["-n","--name"],"description":"Print names instead of numeric identifiers.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}
+      ],
+      "examples": ["id", "id -u"],
+      "manual": {"synopsis":"id [OPTION]... [USER]...","sections":[{"heading":"Description","body":"Prints real and effective user and group identities."},{"heading":"Safety","body":"Reads account identity information without modifying it."}]}
+    }
+  ]
+}

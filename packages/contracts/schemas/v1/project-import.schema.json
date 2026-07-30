@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/project-import.schema.json",
+  "title": "ProjectImportResult",
+  "type": "object",
+  "required": ["project"],
+  "additionalProperties": false,
+  "properties": {
+    "project": { "$ref": "script-project.schema.json" }
+  }
+}

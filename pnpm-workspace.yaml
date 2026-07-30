@@ -1,0 +1,9 @@
+packages:
+  - "apps/desktop"
+  - "packages/*"
+
+allowBuilds:
+  app-builder-bin: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true

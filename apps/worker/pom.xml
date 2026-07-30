@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>dev.commandide</groupId>
+    <artifactId>visual-command-shell-ide</artifactId>
+    <version>0.1.0</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>worker</artifactId>
+  <name>Command IDE Java Worker</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.pty4j</groupId>
+      <artifactId>pty4j</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna-platform</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.openai</groupId>
+      <artifactId>openai-java</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.quicktheories</groupId>
+      <artifactId>quicktheories</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>worker-${project.version}</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <useModulePath>false</useModulePath>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>all</shadedClassifierName>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>dev.commandide.worker.CommandIdeWorker</mainClass>
+                </transformer>
+              </transformers>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>runtime-image</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>jlink-runtime-image</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target name="build-runtime-image">
+                    <delete dir="${project.build.directory}/runtime" quiet="true"/>
+                    <exec executable="${java.home}/bin/jlink" failonerror="true">
+                      <arg value="--add-modules"/>
+                      <arg value="java.base,java.compiler,java.desktop,java.net.http,java.sql,jdk.crypto.ec,jdk.unsupported"/>
+                      <arg value="--strip-debug"/>
+                      <arg value="--compress=zip-6"/>
+                      <arg value="--no-header-files"/>
+                      <arg value="--no-man-pages"/>
+                      <arg value="--output"/>
+                      <arg value="${project.build.directory}/runtime"/>
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>release-metadata</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>clean-stale-release-metadata-errors</id>
+                <phase>initialize</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <delete
+                      file="${maven.multiModuleProjectDirectory}/build/release-metadata/java-license-errors.xml"
+                      quiet="true"/>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.cyclonedx</groupId>
+            <artifactId>cyclonedx-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>java-cyclonedx-sbom</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>makeBom</goal>
+                </goals>
+                <configuration>
+                  <projectType>application</projectType>
+                  <schemaVersion>1.6</schemaVersion>
+                  <includeBomSerialNumber>false</includeBomSerialNumber>
+                  <includeCompileScope>true</includeCompileScope>
+                  <includeProvidedScope>false</includeProvidedScope>
+                  <includeRuntimeScope>true</includeRuntimeScope>
+                  <includeSystemScope>false</includeSystemScope>
+                  <includeTestScope>false</includeTestScope>
+                  <outputFormat>json</outputFormat>
+                  <outputName>command-ide-java.cdx</outputName>
+                  <outputDirectory>${maven.multiModuleProjectDirectory}/build/release-metadata</outputDirectory>
+                  <skipAttach>true</skipAttach>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>license-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>java-third-party-licenses</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>download-licenses</goal>
+                </goals>
+                <configuration>
+                  <includeTransitiveDependencies>true</includeTransitiveDependencies>
+                  <includeOptional>true</includeOptional>
+                  <excludedScopes>test,provided,system</excludedScopes>
+                  <cleanLicensesOutputDirectory>true</cleanLicensesOutputDirectory>
+                  <organizeLicensesByDependencies>true</organizeLicensesByDependencies>
+                  <errorRemedy>xmlOutput</errorRemedy>
+                  <licensesConfigFile>${project.basedir}/src/license/licenses.xml</licensesConfigFile>
+                  <licenseUrlReplacements>
+                    <licenseUrlReplacement>
+                      <regexp>\Qhttps://www.gnu.org/licenses/old-licenses/lgpl-2.1\E</regexp>
+                      <replacement>https://raw.githubusercontent.com/java-native-access/jna/5.14.0/LGPL2.1</replacement>
+                    </licenseUrlReplacement>
+                  </licenseUrlReplacements>
+                  <licensesOutputDirectory>${maven.multiModuleProjectDirectory}/build/release-metadata/java-licenses</licensesOutputDirectory>
+                  <licensesOutputFile>${maven.multiModuleProjectDirectory}/build/release-metadata/java-licenses.xml</licensesOutputFile>
+                  <licensesErrorsFile>${maven.multiModuleProjectDirectory}/build/release-metadata/java-license-errors.xml</licensesErrorsFile>
+                  <licensesOutputFileEol>LF</licensesOutputFileEol>
+                  <writeVersions>true</writeVersions>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

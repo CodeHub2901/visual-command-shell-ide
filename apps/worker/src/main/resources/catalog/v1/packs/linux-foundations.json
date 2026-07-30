@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "1.2.0",
+  "commands": [
+    {
+      "id":"mv","executable":"mv","versionProbeArguments":["--version"],"displayName":"mv","summary":"Move or rename a file or directory","category":"Files",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"source","label":"SOURCE","description":"Source path to move.","required":true,"repeatable":false},{"id":"destination","label":"DESTINATION","description":"Destination path or new name.","required":true,"repeatable":false}],
+      "riskTags":["filesystem-write"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"force","flags":["-f","--force"],"description":"Overwrite an existing destination without prompting.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["interactive"]},{"id":"interactive","flags":["-i","--interactive"],"description":"Prompt before overwriting an existing destination.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["force"]},{"id":"no-clobber","flags":["-n","--no-clobber"],"description":"Do not overwrite an existing destination.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true,"conflictsWith":["force"]}],
+      "examples":["mv draft.txt final.txt","mv -i report.txt archive/report.txt"],
+      "manual":{"synopsis":"mv [OPTION]... SOURCE DESTINATION","sections":[{"heading":"Description","body":"Moves a source path to a destination or renames it in place."},{"heading":"Risk","body":"May overwrite the destination or make the source unavailable at its old path."}]}
+    },
+    {
+      "id":"touch","executable":"touch","versionProbeArguments":["--version"],"displayName":"touch","summary":"Update timestamps or create empty files","category":"Files",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Files whose timestamps should be changed.","required":true,"repeatable":true}],
+      "riskTags":["filesystem-write"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"no-create","flags":["-c","--no-create"],"description":"Do not create files that do not exist.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"access-time","flags":["-a"],"description":"Change only the access time.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"modification-time","flags":["-m"],"description":"Change only the modification time.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"date","flags":["-d","--date"],"description":"Use the specified date string instead of the current time.","takesValue":true,"valueName":"DATE","repeatable":false,"combinable":false}],
+      "examples":["touch notes.txt","touch -c -m existing.txt"],
+      "manual":{"synopsis":"touch [OPTION]... FILE...","sections":[{"heading":"Description","body":"Updates file access or modification timestamps and creates missing files unless disabled."},{"heading":"Risk","body":"Changes filesystem metadata and may create new empty files."}]}
+    },
+    {
+      "id":"head","executable":"head","versionProbeArguments":["--version"],"displayName":"head","summary":"Print the first part of files","category":"Text",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Files to read; standard input is used when omitted.","required":false,"repeatable":true}],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"lines","flags":["-n","--lines"],"description":"Print the requested number of lines.","takesValue":true,"valueName":"COUNT","repeatable":false,"combinable":false},{"id":"bytes","flags":["-c","--bytes"],"description":"Print the requested number of bytes.","takesValue":true,"valueName":"COUNT","repeatable":false,"combinable":false,"conflictsWith":["lines"]},{"id":"quiet","flags":["-q","--quiet"],"description":"Never print file-name headers.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}],
+      "examples":["head README.md","head -n 20 app.log"],
+      "manual":{"synopsis":"head [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Writes the beginning of each selected file or standard input."},{"heading":"Safety","body":"Reads input without modifying it."}]}
+    },
+    {
+      "id":"tail","executable":"tail","versionProbeArguments":["--version"],"displayName":"tail","summary":"Print or follow the last part of files","category":"Text",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Files to read or follow.","required":false,"repeatable":true}],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"lines","flags":["-n","--lines"],"description":"Print the requested number of final lines.","takesValue":true,"valueName":"COUNT","repeatable":false,"combinable":false},{"id":"follow","flags":["-f","--follow"],"description":"Continue reading as a file grows.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"retry","flags":["--retry"],"description":"Keep trying to open an inaccessible file while following.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}],
+      "examples":["tail app.log","tail -f -n 50 service.log"],
+      "manual":{"synopsis":"tail [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Writes the end of files and can continue streaming appended data."},{"heading":"Lifecycle","body":"Follow mode remains active until cancelled and should have explicit process controls."}]}
+    },
+    {
+      "id":"wc","executable":"wc","versionProbeArguments":["--version"],"displayName":"wc","summary":"Count lines, words, characters, or bytes","category":"Text",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Files to count; standard input is used when omitted.","required":false,"repeatable":true}],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"lines","flags":["-l","--lines"],"description":"Print newline counts.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"words","flags":["-w","--words"],"description":"Print word counts.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"bytes","flags":["-c","--bytes"],"description":"Print byte counts.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"characters","flags":["-m","--chars"],"description":"Print character counts.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}],
+      "examples":["wc README.md","wc -lw src/main.txt"],
+      "manual":{"synopsis":"wc [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Prints selected counts for each input and a total when multiple files are supplied."},{"heading":"Safety","body":"Reads input without modifying it."}]}
+    },
+    {
+      "id":"sort","executable":"sort","versionProbeArguments":["--version"],"displayName":"sort","summary":"Sort lines of text files","category":"Text",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Text files to sort; standard input is used when omitted.","required":false,"repeatable":true}],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"reverse","flags":["-r","--reverse"],"description":"Reverse the comparison result.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"numeric","flags":["-n","--numeric-sort"],"description":"Compare according to numeric value.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"unique","flags":["-u","--unique"],"description":"Output only one line for each equal run.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"field-separator","flags":["-t","--field-separator"],"description":"Use the specified field-separator character.","takesValue":true,"valueName":"SEPARATOR","repeatable":false,"combinable":false}],
+      "examples":["sort names.txt","sort -nu numbers.txt"],
+      "manual":{"synopsis":"sort [OPTION]... [FILE]...","sections":[{"heading":"Description","body":"Writes a sorted merge of input lines to standard output."},{"heading":"Locale","body":"The active locale affects collation unless a locale is set explicitly."}]}
+    },
+    {
+      "id":"free","executable":"free","versionProbeArguments":["--version"],"displayName":"free","summary":"Display used and available system memory","category":"System",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],"arguments":[],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"human-readable","flags":["-h","--human"],"description":"Show automatically scaled human-readable values.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"bytes","flags":["-b","--bytes"],"description":"Display memory in bytes.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"seconds","flags":["-s","--seconds"],"description":"Refresh continuously at the specified interval.","takesValue":true,"valueName":"SECONDS","repeatable":false,"combinable":false}],
+      "examples":["free -h","free -s 2"],
+      "manual":{"synopsis":"free [OPTION]...","sections":[{"heading":"Description","body":"Reports physical and swap memory totals from the Linux kernel."},{"heading":"Lifecycle","body":"An update interval keeps the process running until cancelled."}]}
+    },
+    {
+      "id":"uptime","executable":"uptime","versionProbeArguments":["--version"],"displayName":"uptime","summary":"Show system uptime and load averages","category":"System",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],"arguments":[],
+      "riskTags":["read-only"],"shortOptionPolicy":"never",
+      "options":[{"id":"pretty","flags":["-p","--pretty"],"description":"Show uptime in a human-friendly format.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"since","flags":["-s","--since"],"description":"Show the timestamp when the system started.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}],
+      "examples":["uptime","uptime -p"],
+      "manual":{"synopsis":"uptime [OPTION]...","sections":[{"heading":"Description","body":"Shows the current time, elapsed uptime, logged-in user count, and load averages."},{"heading":"Safety","body":"Reads system accounting information without modifying it."}]}
+    },
+    {
+      "id":"lsblk","executable":"lsblk","versionProbeArguments":["--version"],"displayName":"lsblk","summary":"List block devices and filesystem information","category":"Storage",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"devices","label":"DEVICE","description":"Block device paths to display.","required":false,"repeatable":true}],
+      "riskTags":["read-only"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"all","flags":["-a","--all"],"description":"Include empty devices.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"filesystems","flags":["-f","--fs"],"description":"Show filesystem-related columns.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"json","flags":["-J","--json"],"description":"Produce JSON output.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"output","flags":["-o","--output"],"description":"Select a comma-separated output column list.","takesValue":true,"valueName":"COLUMNS","repeatable":false,"combinable":false},{"id":"filter","flags":["-Q","--filter"],"description":"Print only devices matching a libsmartcols filter expression (util-linux 2.40 or newer).","takesValue":true,"valueName":"EXPRESSION","repeatable":false,"combinable":false}],
+      "examples":["lsblk","lsblk -f"],
+      "manual":{"synopsis":"lsblk [OPTION]... [DEVICE]...","sections":[{"heading":"Description","body":"Reads sysfs and udev data to display block devices in a tree or selected format."},{"heading":"Safety","body":"Inspection options do not modify block devices."}]}
+    },
+    {
+      "id":"mount","executable":"mount","versionProbeArguments":["--version"],"displayName":"mount","summary":"Show or attach filesystems","category":"Storage",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"source","label":"SOURCE","description":"Device, label, UUID, or remote filesystem.","required":false,"repeatable":false},{"id":"directory","label":"DIRECTORY","description":"Directory where the filesystem should be attached.","required":false,"repeatable":false}],
+      "riskTags":["system-change","privilege"],"shortOptionPolicy":"never",
+      "options":[{"id":"all","flags":["-a","--all"],"description":"Mount filesystems described by fstab.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"type","flags":["-t","--types"],"description":"Limit or select filesystem types.","takesValue":true,"valueName":"TYPE","repeatable":false,"combinable":false},{"id":"options","flags":["-o","--options"],"description":"Use a comma-separated mount option list.","takesValue":true,"valueName":"OPTIONS","repeatable":false,"combinable":false},{"id":"read-only","flags":["-r","--read-only"],"description":"Mount the filesystem read-only.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}],
+      "examples":["mount","mount -r /dev/sdb1 /mnt/data"],
+      "manual":{"synopsis":"mount [OPTION]... [SOURCE] [DIRECTORY]","sections":[{"heading":"Description","body":"Lists mounted filesystems with no arguments or attaches a filesystem to the directory tree."},{"heading":"Risk","body":"Attaching filesystems changes system state and usually requires elevated privileges."}]}
+    },
+    {
+      "id":"chown","executable":"chown","versionProbeArguments":["--version"],"displayName":"chown","summary":"Change file owner and group","category":"Permissions",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"owner","label":"OWNER[:GROUP]","description":"New owner and optional group.","required":true,"repeatable":false},{"id":"files","label":"FILE","description":"Paths whose ownership should change.","required":true,"repeatable":true}],
+      "riskTags":["system-change","privilege"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"recursive","flags":["-R","--recursive"],"description":"Operate recursively on directories.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"verbose","flags":["-v","--verbose"],"description":"Report every processed file.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"changes","flags":["-c","--changes"],"description":"Report only files whose ownership changes.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}],
+      "examples":["chown app:app config.ini","chown -R app:app data"],
+      "manual":{"synopsis":"chown [OPTION]... OWNER[:GROUP] FILE...","sections":[{"heading":"Description","body":"Changes user and group ownership for selected paths."},{"heading":"Risk","body":"Incorrect ownership can expose data, deny access, or alter privilege boundaries."}]}
+    },
+    {
+      "id":"whoami","executable":"whoami","versionProbeArguments":["--version"],"displayName":"whoami","summary":"Print the effective user name","category":"Users",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],"arguments":[],"riskTags":["read-only"],"shortOptionPolicy":"never","options":[],
+      "examples":["whoami"],
+      "manual":{"synopsis":"whoami","sections":[{"heading":"Description","body":"Prints the user name associated with the current effective user ID."},{"heading":"Safety","body":"Reads process identity information without modifying accounts."}]}
+    },
+    {
+      "id":"ping","executable":"ping","versionProbeArguments":["-V"],"displayName":"ping","summary":"Test reachability and network latency","category":"Networking",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"destination","label":"DESTINATION","description":"Host name or address to probe.","required":true,"repeatable":false}],
+      "riskTags":["network"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"count","flags":["-c"],"description":"Stop after sending the requested number of packets.","takesValue":true,"valueName":"COUNT","repeatable":false,"combinable":false},{"id":"interval","flags":["-i"],"description":"Wait the specified interval between packets.","takesValue":true,"valueName":"SECONDS","repeatable":false,"combinable":false},{"id":"numeric","flags":["-n"],"description":"Do not resolve addresses to host names.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"ipv6","flags":["-6"],"description":"Use IPv6 only.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}],
+      "examples":["ping -c 4 example.com","ping -6 -c 4 ::1"],
+      "manual":{"synopsis":"ping [OPTION]... DESTINATION","sections":[{"heading":"Description","body":"Sends ICMP echo requests and reports reachability and round-trip timing."},{"heading":"Network","body":"Generates network traffic and may continue until cancelled unless a count is supplied."}]}
+    },
+    {
+      "id":"git","executable":"git","versionProbeArguments":["--version"],"displayName":"git","summary":"Manage distributed version-control repositories","category":"Development",
+      "platforms":["linux","macos","windows"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"command","label":"COMMAND","description":"Git subcommand such as status, log, clone, or commit.","required":true,"repeatable":false},{"id":"arguments","label":"ARGUMENT","description":"Subcommand-specific arguments.","required":false,"repeatable":true}],
+      "riskTags":["filesystem-write","network"],"shortOptionPolicy":"never",
+      "options":[{"id":"working-directory","flags":["-C"],"description":"Run as if Git was started in the selected directory.","takesValue":true,"valueName":"PATH","repeatable":true,"combinable":false},{"id":"no-pager","flags":["--no-pager"],"description":"Do not pipe output into a pager.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"config","flags":["-c"],"description":"Set a configuration key for this invocation.","takesValue":true,"valueName":"NAME=VALUE","repeatable":true,"combinable":false}],
+      "examples":["git status","git --no-pager log --oneline"],
+      "manual":{"synopsis":"git [OPTIONS] COMMAND [ARGUMENTS]...","sections":[{"heading":"Description","body":"Dispatches version-control subcommands for inspecting or changing repositories and remotes."},{"heading":"Risk","body":"Read-only subcommands are low impact; reset, clean, checkout, commit, pull, and push can change local or remote state."}]}
+    },
+    {
+      "id":"env","executable":"env","versionProbeArguments":["--version"],"displayName":"env","summary":"Inspect or modify the environment for a command","category":"Other",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"assignments-or-command","label":"NAME=VALUE|COMMAND","description":"Environment assignments followed optionally by a command and its arguments.","required":false,"repeatable":true}],
+      "riskTags":["system-change"],"shortOptionPolicy":"never",
+      "options":[{"id":"ignore-environment","flags":["-i","--ignore-environment"],"description":"Start with an empty environment.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"unset","flags":["-u","--unset"],"description":"Remove a variable from the command environment.","takesValue":true,"valueName":"NAME","repeatable":true,"combinable":false},{"id":"chdir","flags":["-C","--chdir"],"description":"Change to the selected working directory before running a command.","takesValue":true,"valueName":"DIRECTORY","repeatable":false,"combinable":false}],
+      "examples":["env","env -i PATH=/usr/bin env"],
+      "manual":{"synopsis":"env [OPTION]... [NAME=VALUE]... [COMMAND [ARGUMENT]...]","sections":[{"heading":"Description","body":"Prints the current environment or runs a command with an adjusted environment."},{"heading":"Risk","body":"When a command is supplied, env executes it; review both assignments and the full command arguments."}]}
+    },
+    {
+      "id":"gzip","executable":"gzip","versionProbeArguments":["--version"],"displayName":"gzip","summary":"Compress or decompress files","category":"Files",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"files","label":"FILE","description":"Files to compress or decompress.","required":true,"repeatable":true}],
+      "riskTags":["filesystem-write"],"shortOptionPolicy":"combine-boolean",
+      "options":[{"id":"decompress","flags":["-d","--decompress"],"description":"Decompress selected files.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"keep","flags":["-k","--keep"],"description":"Keep input files instead of deleting them after success.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"force","flags":["-f","--force"],"description":"Force compression or decompression and overwrite outputs when allowed.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true},{"id":"verbose","flags":["-v","--verbose"],"description":"Print compression information for each file.","takesValue":false,"valueName":null,"repeatable":false,"combinable":true}],
+      "examples":["gzip -k report.txt","gzip -dk archive.gz"],
+      "manual":{"synopsis":"gzip [OPTION]... FILE...","sections":[{"heading":"Description","body":"Compresses files to gzip format or restores compressed files."},{"heading":"Risk","body":"By default successful compression or decompression replaces the input; use keep when preservation is required."}]}
+    },
+    {
+      "id":"sudo","executable":"sudo","versionProbeArguments":["--version"],"displayName":"sudo","summary":"Run a command under another security identity","category":"Permissions",
+      "platforms":["linux"],"distroFamilies":["ubuntu","fedora","other"],
+      "arguments":[{"id":"command","label":"COMMAND","description":"Command to execute with the selected security identity.","required":true,"repeatable":false},{"id":"arguments","label":"ARGUMENT","description":"Arguments passed to the selected command.","required":false,"repeatable":true}],
+      "riskTags":["privilege"],"shortOptionPolicy":"never",
+      "options":[{"id":"user","flags":["-u","--user"],"description":"Run the command as the specified user instead of root.","takesValue":true,"valueName":"USER","repeatable":false,"combinable":false},{"id":"group","flags":["-g","--group"],"description":"Run the command with the specified primary group.","takesValue":true,"valueName":"GROUP","repeatable":false,"combinable":false},{"id":"login","flags":["-i","--login"],"description":"Run the target user's login shell environment.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"preserve-environment","flags":["-E","--preserve-env"],"description":"Preserve the calling environment subject to sudo policy.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false},{"id":"non-interactive","flags":["-n","--non-interactive"],"description":"Fail instead of prompting when authentication is required.","takesValue":false,"valueName":null,"repeatable":false,"combinable":false}],
+      "examples":["sudo systemctl restart nginx","sudo -u app whoami"],
+      "manual":{"synopsis":"sudo [OPTION]... COMMAND [ARGUMENT]...","sections":[{"heading":"Description","body":"Executes a reviewed command under another user or group according to the local sudo policy."},{"heading":"Risk","body":"Privilege elevation is always High risk. Authentication stays inside the PTY and password input is never stored in application state, events, history, logs, or AI requests."}]}
+    }
+  ]
+}

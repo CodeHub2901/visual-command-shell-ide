@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<licenseSummary>
+  <dependencies>
+    <dependency>
+      <groupId>\Qcom.openai\E</groupId>
+      <artifactId>openai-java(?:-client-okhttp|-core)?</artifactId>
+      <version>\Q4.43.0\E</version>
+      <matchLicenses>
+        <license>
+          <name>\QApache-2.0\E</name>
+        </license>
+      </matchLicenses>
+      <licenses>
+        <license>
+          <name>Apache-2.0</name>
+          <url>https://raw.githubusercontent.com/openai/openai-java/v4.43.0/LICENSE</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
+    </dependency>
+    <dependency>
+      <groupId>\Qnet.java.dev.jna\E</groupId>
+      <artifactId>jna(?:-platform)?</artifactId>
+      <version>\Q5.14.0\E</version>
+      <matchLicenses>
+        <license>
+          <name>\QLGPL-2.1-or-later\E</name>
+        </license>
+        <license>
+          <name>\QApache-2.0\E</name>
+        </license>
+      </matchLicenses>
+      <licenses>
+        <license>
+          <name>LGPL-2.1-or-later</name>
+          <url>https://raw.githubusercontent.com/java-native-access/jna/5.14.0/LGPL2.1</url>
+          <distribution>repo</distribution>
+          <comments>JNA is dual-licensed under LGPL-2.1-or-later or Apache-2.0.</comments>
+        </license>
+        <license>
+          <name>Apache-2.0</name>
+          <url>https://raw.githubusercontent.com/java-native-access/jna/5.14.0/LICENSE</url>
+          <distribution>repo</distribution>
+          <comments>JNA is dual-licensed under LGPL-2.1-or-later or Apache-2.0.</comments>
+        </license>
+      </licenses>
+    </dependency>
+  </dependencies>
+</licenseSummary>

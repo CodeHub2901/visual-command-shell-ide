@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.1.0",
+  "id": "ubuntu-26.04",
+  "distroFamily": "ubuntu",
+  "versions": ["26.04"],
+  "commands": [
+    {
+      "commandId": "apt",
+      "status": "supported",
+      "note": "Curated common APT syntax is targeted for Ubuntu 26.04 LTS; package transactions still require native simulation and review."
+    },
+    {
+      "commandId": "dnf",
+      "status": "unsupported",
+      "note": "DNF is not the native package manager for Ubuntu 26.04 LTS."
+    },
+    {
+      "commandId": "lsblk",
+      "status": "supported",
+      "note": "Ubuntu 26.04 LTS uses the util-linux 2.41 series, including the lsblk filter expression option introduced upstream in 2.40.",
+      "unavailableOptionIds": []
+    },
+    {
+      "commandId": "mount",
+      "status": "supported",
+      "note": "The curated common util-linux mount listing, read-only, type, and option syntax is covered for Ubuntu 26.04 LTS."
+    },
+    {
+      "commandId": "free",
+      "status": "supported",
+      "note": "The curated procps-ng free human-readable, byte, and refresh syntax is covered for Ubuntu 26.04 LTS."
+    },
+    {
+      "commandId": "ping",
+      "status": "supported",
+      "note": "The curated iputils ping count, interval, numeric, and IPv6 syntax is covered for Ubuntu 26.04 LTS."
+    },
+    {
+      "commandId": "git",
+      "status": "supported",
+      "note": "The catalog exposes stable Git global invocation syntax for Ubuntu 26.04 LTS; subcommand semantics remain separately reviewable."
+    }
+  ]
+}

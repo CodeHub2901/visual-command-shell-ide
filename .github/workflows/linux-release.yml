@@ -1,0 +1,185 @@
+name: linux-release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build native Linux artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install native packaging and display tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes rpm xvfb
+      - run: chmod +x mvnw
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - run: pnpm dist:linux
+      - name: Verify unpacked application
+        run: pnpm test:packaged
+      - name: Verify AppImage launch
+        shell: bash
+        run: |
+          appimage="$(find release -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          chmod +x "$appimage"
+          CMD_IDE_INSTALLED_EXECUTABLE="$appimage" \
+          CMD_IDE_DATA_DIR="$RUNNER_TEMP/command-ide-appimage-data" \
+          APPIMAGE_EXTRACT_AND_RUN=1 \
+          node tests/integration/installed-health.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: command-ide-linux-x64
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/SHA256SUMS.txt
+            release/metadata
+          if-no-files-found: error
+          retention-days: 14
+
+  ubuntu-deb:
+    name: deb install / smoke / uninstall (${{ matrix.os }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-26.04
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: command-ide-linux-x64
+          path: release
+      - name: Install candidate
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes xvfb
+          deb="$(find release -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb"
+          sudo apt-get install --yes "$deb"
+          package_name="$(dpkg-deb --field "$deb" Package)"
+          executable="$(dpkg --listfiles "$package_name" | grep '/command-ide$' | head -n 1)"
+          test -x "$executable"
+          dpkg --listfiles "$package_name" | grep -Eq '/icons/.+\.(svg|png)$'
+          printf 'PACKAGE_NAME=%s\n' "$package_name" >> "$GITHUB_ENV"
+          printf 'CMD_IDE_INSTALLED_EXECUTABLE=%s\n' "$executable" >> "$GITHUB_ENV"
+      - name: Launch without Java overrides
+        shell: bash
+        run: |
+          data_dir="$RUNNER_TEMP/command-ide-deb-data"
+          mkdir -p "$data_dir"
+          printf '{"preserve":true}\n' > "$data_dir/exported-project.cmdbuilder.json"
+          CMD_IDE_DATA_DIR="$data_dir" node tests/integration/installed-health.mjs
+      - name: Record installed PTY throughput
+        shell: bash
+        run: |
+          real_executable="$(readlink -f "$CMD_IDE_INSTALLED_EXECUTABLE")"
+          resources_dir="$(dirname "$real_executable")/resources"
+          test -x "$resources_dir/runtime/bin/java"
+          test -f "$resources_dir/worker/worker-all.jar"
+          CMD_IDE_JAVA="$resources_dir/runtime/bin/java" \
+          CMD_IDE_WORKER_JAR="$resources_dir/worker/worker-all.jar" \
+          CMD_IDE_DATA_DIR="$RUNNER_TEMP/command-ide-deb-performance" \
+          node tests/integration/pty-throughput.mjs
+      - name: Uninstall without deleting user data
+        shell: bash
+        run: |
+          sudo apt-get remove --yes "$PACKAGE_NAME"
+          test ! -e "$CMD_IDE_INSTALLED_EXECUTABLE"
+          test -f "$RUNNER_TEMP/command-ide-deb-data/exported-project.cmdbuilder.json"
+
+  fedora-rpm:
+    name: rpm install / smoke / uninstall (Fedora 44 container)
+    needs: build
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    timeout-minutes: 20
+    steps:
+      - name: Install test prerequisites
+        run: dnf install --assumeyes findutils nodejs shadow-utils xorg-x11-server-Xvfb
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: command-ide-linux-x64
+          path: release
+      - name: Install candidate
+        shell: bash
+        run: |
+          rpm_file="$(find release -maxdepth 1 -type f -name '*.rpm' -print -quit)"
+          test -n "$rpm_file"
+          dnf install --assumeyes "$rpm_file"
+          package_name="$(rpm --query --package --queryformat '%{NAME}' "$rpm_file")"
+          executable="$(rpm --query --list "$package_name" | grep '/command-ide$' | head -n 1)"
+          test -x "$executable"
+          rpm --query --list "$package_name" | grep -Eq '/icons/.+\.(svg|png)$'
+          printf 'PACKAGE_NAME=%s\n' "$package_name" >> "$GITHUB_ENV"
+          printf 'CMD_IDE_INSTALLED_EXECUTABLE=%s\n' "$executable" >> "$GITHUB_ENV"
+      - name: Record installed PTY throughput as an unprivileged user
+        shell: bash
+        run: |
+          useradd --create-home commandide-smoke
+          performance_dir="/tmp/command-ide-rpm-performance"
+          mkdir -p "$performance_dir"
+          chown -R commandide-smoke:commandide-smoke "$performance_dir"
+          real_executable="$(readlink -f "$CMD_IDE_INSTALLED_EXECUTABLE")"
+          resources_dir="$(dirname "$real_executable")/resources"
+          test -x "$resources_dir/runtime/bin/java"
+          test -f "$resources_dir/worker/worker-all.jar"
+          runuser -u commandide-smoke -- env \
+            HOME=/home/commandide-smoke \
+            CMD_IDE_JAVA="$resources_dir/runtime/bin/java" \
+            CMD_IDE_WORKER_JAR="$resources_dir/worker/worker-all.jar" \
+            CMD_IDE_DATA_DIR="$performance_dir" \
+            node tests/integration/pty-throughput.mjs
+      - name: Launch as an unprivileged user without Java overrides
+        shell: bash
+        run: |
+          data_dir="/tmp/command-ide-rpm-data"
+          mkdir -p "$data_dir"
+          printf '{"preserve":true}\n' > "$data_dir/exported-project.cmdbuilder.json"
+          chown -R commandide-smoke:commandide-smoke "$data_dir"
+          runuser -u commandide-smoke -- env \
+            HOME=/home/commandide-smoke \
+            CMD_IDE_INSTALLED_EXECUTABLE="$CMD_IDE_INSTALLED_EXECUTABLE" \
+            CMD_IDE_DATA_DIR="$data_dir" \
+            node tests/integration/installed-health.mjs
+      - name: Uninstall without deleting user data
+        shell: bash
+        run: |
+          dnf remove --assumeyes "$PACKAGE_NAME"
+          test ! -e "$CMD_IDE_INSTALLED_EXECUTABLE"
+          test -f /tmp/command-ide-rpm-data/exported-project.cmdbuilder.json

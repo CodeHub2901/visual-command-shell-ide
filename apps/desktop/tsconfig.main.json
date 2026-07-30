@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "rootDir": "src",
+    "outDir": "dist-electron",
+    "sourceMap": true,
+    "types": ["node"]
+  },
+  "include": ["src/main/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

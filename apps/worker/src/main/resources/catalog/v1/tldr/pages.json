@@ -1,0 +1,293 @@
+{
+  "schemaVersion": "1.0.0",
+  "pages": [
+    {
+      "commandId": "ls",
+      "examples": [
+        {"description":"List entries including hidden files.","command":"ls -a"},
+        {"description":"Use a long listing with human-readable sizes.","command":"ls -lh"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/ls.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "find",
+      "examples": [
+        {"description":"Find files by extension below a directory.","command":"find path/to/directory -name '*.ext'"},
+        {"description":"Find directories with a selected name.","command":"find path/to/directory -type d -name '*lib*'"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/find.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "ps",
+      "examples": [
+        {"description":"List running processes with user-oriented details.","command":"ps aux"},
+        {"description":"Sort process output by memory size.","command":"ps --sort size"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/ps.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "free",
+      "examples": [
+        {"description":"Display memory in human-readable units.","command":"free -h"},
+        {"description":"Refresh memory information every two seconds.","command":"free -s 2"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/free.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "lsblk",
+      "examples": [
+        {"description":"List storage devices in a tree.","command":"lsblk"},
+        {"description":"Include filesystem information.","command":"lsblk -f"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/lsblk.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "git",
+      "examples": [
+        {"description":"Create an empty Git repository.","command":"git init"},
+        {"description":"View the state of the working tree and index.","command":"git status"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/git.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-18",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "cut",
+      "examples": [
+        {"description":"Split colon-delimited input and print its first field.","command":"cut -d : -f 1 /etc/passwd"},
+        {"description":"Print the first twelve characters of every input line.","command":"cut -c 1-12 report.txt"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/cut.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "uniq",
+      "examples": [
+        {"description":"Count adjacent repeated lines after sorting the input.","command":"sort events.txt | uniq -c"},
+        {"description":"Print only lines that occur once in sorted input.","command":"sort events.txt | uniq -u"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/uniq.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "tee",
+      "examples": [
+        {"description":"Copy standard input to a file and standard output.","command":"echo example | tee output.txt"},
+        {"description":"Append standard input to a file while also displaying it.","command":"echo example | tee -a output.txt"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/tee.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "xargs",
+      "examples": [
+        {"description":"Pass items from standard input as arguments to a command.","command":"printf '%s\\n' one two | xargs echo"},
+        {"description":"Run one command invocation per input item.","command":"printf '%s\\n' one two | xargs -n 1 echo"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/xargs.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "pgrep",
+      "examples": [
+        {"description":"Print process IDs whose names match a pattern.","command":"pgrep worker"},
+        {"description":"Match a process using its complete command line.","command":"pgrep -f 'python3 worker.py'"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/pgrep.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "pkill",
+      "examples": [
+        {"description":"Send the default termination signal to matching processes.","command":"pkill worker"},
+        {"description":"Match complete command lines before sending a signal.","command":"pkill -f 'python3 worker.py'"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/pkill.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "top",
+      "examples": [
+        {"description":"Open the interactive real-time process view.","command":"top"},
+        {"description":"Display only processes owned by the selected effective user.","command":"top -u app"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/top.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "findmnt",
+      "examples": [
+        {"description":"List mounted filesystems as a tree.","command":"findmnt"},
+        {"description":"List only filesystems of selected types.","command":"findmnt -t ext4,btrfs"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/findmnt.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "umount",
+      "examples": [
+        {"description":"Detach the filesystem mounted at a directory.","command":"sudo umount /mnt/archive"},
+        {"description":"Recursively detach nested mounts below a directory.","command":"sudo umount -R /mnt/workspace"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/linux/umount.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "wget",
+      "examples": [
+        {"description":"Download a URL using its remote file name.","command":"wget https://example.com/archive.tar.xz"},
+        {"description":"Download a URL to a selected local file.","command":"wget -O data.json https://example.com/data.json"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/wget.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "xz",
+      "examples": [
+        {"description":"Compress a file in xz format.","command":"xz dataset.csv"},
+        {"description":"Decompress an xz file while preserving the compressed input.","command":"xz -dk archive.tar.xz"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/xz.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    },
+    {
+      "commandId": "make",
+      "examples": [
+        {"description":"Build the first target in the default makefile.","command":"make"},
+        {"description":"Build a target using a makefile in another directory.","command":"make -C apps/worker test"}
+      ],
+      "attribution": {
+        "source":"tldr-pages",
+        "pageUrl":"https://github.com/tldr-pages/tldr/blob/5ca248e494fba9776274f74362440708849e411f/pages/common/make.md",
+        "sourceRevision":"5ca248e494fba9776274f74362440708849e411f",
+        "retrievedAt":"2026-07-29",
+        "copyright":"Copyright © 2014–present the tldr-pages team and contributors.",
+        "license":"CC-BY 4.0",
+        "licenseUrl":"https://creativecommons.org/licenses/by/4.0/"
+      }
+    }
+  ]
+}

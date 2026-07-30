@@ -1,0 +1,41 @@
+{
+  "name": "visual-command-shell-ide",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first visual command and shell IDE",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "build": "pnpm build:contracts && pnpm build:desktop && pnpm build:worker && pnpm build:runtime",
+    "build:contracts": "pnpm --filter @cmd-ide/contracts build",
+    "build:desktop": "pnpm --filter @cmd-ide/desktop build",
+    "build:worker": "node scripts/run-maven.mjs -pl apps/worker -am package",
+    "build:runtime": "node scripts/run-maven.mjs -pl apps/worker -Pruntime-image -DskipTests verify",
+    "test": "pnpm test:ts && pnpm test:worker",
+    "test:ts": "pnpm build:contracts && pnpm --recursive --if-present test",
+    "test:worker": "node scripts/run-maven.mjs -pl apps/worker test",
+    "test:integration": "node tests/integration/worker-health.mjs",
+    "test:electron-smoke": "node tests/integration/electron-health.mjs",
+    "test:runtime": "node scripts/test-runtime.mjs",
+    "test:packaged": "node tests/integration/packaged-health.mjs",
+    "test:pty-throughput": "node tests/integration/pty-throughput.mjs",
+    "test:performance": "node tests/integration/worker-performance.mjs && pnpm test:pty-throughput && pnpm --filter @cmd-ide/desktop test:performance",
+    "test:release-artifacts": "node scripts/test-release-artifacts.mjs",
+    "test:packaging-assets": "node scripts/verify-packaging-assets.mjs",
+    "release:metadata:java": "node scripts/run-maven.mjs -pl apps/worker -Prelease-metadata -DskipTests verify",
+    "release:metadata:node": "node scripts/generate-release-metadata.mjs",
+    "release:metadata:verify": "node scripts/verify-release-metadata.mjs",
+    "release:metadata": "pnpm release:metadata:java && pnpm release:metadata:node && pnpm release:metadata:verify && pnpm test:release-artifacts",
+    "release:finalize": "node scripts/finalize-release.mjs",
+    "release:verify": "node scripts/verify-release-artifacts.mjs",
+    "typecheck": "pnpm build:contracts && pnpm --recursive --if-present typecheck",
+    "verify": "pnpm typecheck && pnpm test && pnpm test:packaging-assets && pnpm build && pnpm test:integration && pnpm test:runtime && pnpm test:performance && pnpm test:electron-smoke",
+    "dist:linux": "pnpm build && pnpm release:metadata && pnpm --filter @cmd-ide/desktop exec electron-builder --linux AppImage deb rpm && pnpm release:finalize --require-linux-packages && pnpm release:verify --require-linux-packages",
+    "pack:dir": "pnpm build && pnpm release:metadata && pnpm --filter @cmd-ide/desktop exec electron-builder --dir",
+    "start": "pnpm --filter @cmd-ide/desktop start"
+  }
+}

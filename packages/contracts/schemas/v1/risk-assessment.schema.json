@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/risk-assessment.schema.json",
+  "title": "RiskAssessment",
+  "type": "object",
+  "required": ["script", "reviewHash", "level", "confirmation", "evidence"],
+  "additionalProperties": false,
+  "properties": {
+    "script": { "type": "string", "minLength": 1, "maxLength": 1000000 },
+    "reviewHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "level": { "enum": ["low", "medium", "high", "critical"] },
+    "confirmation": { "enum": ["none", "confirm", "type-script"] },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["ruleId", "nodeId", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "ruleId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "nodeId": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        }
+      }
+    }
+  }
+}

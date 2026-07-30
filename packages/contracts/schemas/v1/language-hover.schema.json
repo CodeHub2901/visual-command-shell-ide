@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/language-hover.schema.json",
+  "title": "LanguageHoverResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contents"],
+  "properties": {
+    "contents": { "type": ["string", "null"], "minLength": 1, "maxLength": 20000 }
+  }
+}

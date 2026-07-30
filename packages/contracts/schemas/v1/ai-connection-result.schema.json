@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/ai-connection-result.schema.json",
+  "title": "AiConnectionResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "reason"],
+  "properties": {
+    "status": { "enum": ["connected", "supported", "unavailable", "failed", "unsupported"] },
+    "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": { "enum": ["connected", "supported"] },
+        "reason": { "type": "null" }
+      }
+    },
+    {
+      "properties": {
+        "status": { "enum": ["unavailable", "failed", "unsupported"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  ]
+}
