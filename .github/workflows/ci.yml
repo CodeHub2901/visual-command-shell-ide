@@ -45,5 +45,18 @@ jobs:
       - run: pnpm verify
       - name: Build unpacked native application
         run: pnpm pack:dir
+      - name: Configure packaged Chromium sandbox helper
+        shell: bash
+        run: |
+          sandbox_helper="$(realpath release/linux-unpacked/chrome-sandbox)"
+          printf 'Packaged Chromium sandbox helper: %s\n' "$sandbox_helper"
+          test -f "$sandbox_helper"
+          sudo chown 0:0 "$sandbox_helper"
+          sudo chmod 4755 "$sandbox_helper"
+          printf 'Packaged Chromium sandbox owner/mode: %s %s\n' \
+            "$(stat --format='%u:%g' "$sandbox_helper")" \
+            "$(stat --format='%a' "$sandbox_helper")"
+          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
+          test -u "$sandbox_helper"
       - name: Verify bundled runtime and language server
         run: pnpm test:packaged
