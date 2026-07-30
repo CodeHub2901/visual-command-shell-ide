@@ -19,7 +19,9 @@ assert.equal(
   `Packaged metadata verification failed\n${metadataCheck.stdout}\n${metadataCheck.stderr}`
 );
 
-const child = spawn(executable, [], {
+const command = process.platform === "linux" ? "xvfb-run" : executable;
+const args = process.platform === "linux" ? ["-a", executable] : [];
+const child = spawn(command, args, {
   cwd: path.dirname(executable),
   windowsHide: true,
   env: {
