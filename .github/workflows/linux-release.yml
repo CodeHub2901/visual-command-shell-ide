@@ -45,11 +45,11 @@ jobs:
       - name: Configure Chromium sandbox helper
         shell: bash
         run: |
-          mapfile -t sandbox_helpers < <(
-            find node_modules/.pnpm -type f -path '*/electron/dist/chrome-sandbox'
-          )
-          test "${#sandbox_helpers[@]}" -eq 1
-          sandbox_helper="${sandbox_helpers[0]}"
+          sandbox_helper="$(
+            cd apps/desktop
+            node -e "const path=require('node:path'); process.stdout.write(path.join(path.dirname(require('electron')), 'chrome-sandbox'))"
+          )"
+          test -f "$sandbox_helper"
           sudo chown root:root "$sandbox_helper"
           sudo chmod 4755 "$sandbox_helper"
           test "$(stat --format='%U:%G %a' "$sandbox_helper")" = "root:root 4755"
