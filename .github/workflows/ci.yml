@@ -25,6 +25,17 @@ jobs:
           java-version: 21
       - run: chmod +x mvnw
       - run: pnpm install --frozen-lockfile
+      - name: Configure Chromium sandbox helper
+        shell: bash
+        run: |
+          mapfile -t sandbox_helpers < <(
+            find node_modules/.pnpm -type f -path '*/electron/dist/chrome-sandbox'
+          )
+          test "${#sandbox_helpers[@]}" -eq 1
+          sandbox_helper="${sandbox_helpers[0]}"
+          sudo chown root:root "$sandbox_helper"
+          sudo chmod 4755 "$sandbox_helper"
+          test "$(stat --format='%U:%G %a' "$sandbox_helper")" = "root:root 4755"
       - run: pnpm verify
       - name: Build unpacked native application
         run: pnpm pack:dir

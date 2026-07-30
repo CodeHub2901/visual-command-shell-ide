@@ -22,6 +22,11 @@ Run the complete deterministic gate:
 pnpm verify
 ```
 
+Linux CI configures Electron's downloaded `chrome-sandbox` helper with root
+ownership and mode `4755` before launching any development or packaged smoke.
+Do not replace that setup with `--no-sandbox`; renderer sandboxing is part of
+the release security boundary.
+
 `pnpm build` creates the shaded worker JAR through Maven and runs the Maven
 `runtime-image` profile. That profile uses `jlink` with the explicitly reviewed
 module set in `apps/worker/pom.xml`. `pnpm test:runtime` launches integration
