@@ -360,7 +360,7 @@ Deliverables:
 - Crash recovery, corrupt-project/database handling, backups where appropriate, log rotation, and support bundle redaction.
 - Documentation: architecture, schema, contribution, code of conduct, security, governance, attribution, third-party notices, and templates.
 
-Current implementation checkpoint (2026-07-29):
+Current implementation checkpoint (2026-07-31):
 
 - Complete: keyboard workspace/mode/search shortcuts, skip navigation, explicit
   focus movement and selection state, reduced-motion and forced-color CSS,
@@ -375,14 +375,22 @@ Current implementation checkpoint (2026-07-29):
 - Complete: deterministic 1,000-node canvas projection and sustained
   20-million-character terminal-output filtering budgets exercise production
   renderer helpers and report observed values in the verification gate.
+- Complete: installed-app smoke measures the real React Flow 1,000-node
+  canvas under Xvfb, while the native PTY probe streams 4 MiB through Pty4J and
+  framed JSON-RPC. Ubuntu 24.04/26.04 and Fedora 44 jobs emit strict
+  revision-bound acceptance records, and an aggregate verifier requires the
+  complete target matrix.
+- Complete: 62 curated command records, four indexed packs, exact
+  distro-overlay precedence, bounded PATH discovery, and 18 revision-pinned
+  TLDR pages cover the specified command families and manual baseline.
 - Complete: a typed shared English message catalog now covers React,
   accessibility text, visual/editor/terminal helper output, asynchronous
   fallbacks, and Electron native dialogs. Locale-neutral workspace IDs,
   fallback, interpolation, plural, date/number formatting, and inline-copy
   regression guards make additional locales an additive catalog task.
-- In progress: remaining interactive large-canvas/end-to-end PTY native
-  measurements, complete command
-  packs, log/support-bundle work, and the three-distribution acceptance matrix.
+- In progress: recording the external three-distribution acceptance run,
+  obtaining Fedora clean-VM sign-off, and adding file-backed log/support-bundle
+  operations only if beta operations require them.
 
 Exit gate:
 

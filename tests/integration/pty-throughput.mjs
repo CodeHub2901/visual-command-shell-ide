@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeProbeResult } from "./probe-result.mjs";
 
 if (process.platform !== "linux") {
   process.stdout.write("End-to-end PTY throughput skipped: native Linux PTY required.\n");
@@ -186,6 +187,17 @@ try {
 
   const mebibytes = receivedCharacters / (1024 * 1024);
   const mebibytesPerSecond = mebibytes / (elapsedMs / 1000);
+  writeProbeResult("CMD_IDE_PTY_RESULT_PATH", {
+    schemaVersion: "1.0.0",
+    probe: "pty-throughput",
+    characters: receivedCharacters,
+    elapsedMs,
+    mebibytes,
+    mebibytesPerSecond,
+    exitStatus: exitEvent.exitStatus,
+    errorEvents: events.filter((event) => event.type === "error").length,
+    framedTransport: true
+  });
   process.stdout.write(
     `End-to-end PTY throughput: ${mebibytesPerSecond.toFixed(2)} MiB/s `
       + `(${mebibytes.toFixed(1)} MiB across framed JSON-RPC in ${elapsedMs.toFixed(1)} ms).\n`

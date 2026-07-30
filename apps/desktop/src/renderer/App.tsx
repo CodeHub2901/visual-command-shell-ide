@@ -171,7 +171,7 @@ export function App() {
       }
       if (shortcut.kind === "mode") {
         setMode(shortcut.mode);
-        window.requestAnimationFrame(() => workspaceContent.current?.focus());
+        workspaceContent.current?.focus();
         return;
       }
       if (shortcut.kind === "toggle-terminal") {
@@ -183,7 +183,7 @@ export function App() {
       setWorkspace(target.id);
       if (target.id === "visual-builder") setMode("Guided");
       if (target.id === "script-editor") setMode("Compact");
-      window.requestAnimationFrame(() => workspaceContent.current?.focus());
+      workspaceContent.current?.focus();
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
@@ -322,7 +322,7 @@ export function App() {
               setWorkspace(workspaceEntry.id);
               if (workspaceEntry.id === "visual-builder") setMode("Guided");
               if (workspaceEntry.id === "script-editor") setMode("Compact");
-              window.requestAnimationFrame(() => workspaceContent.current?.focus());
+              workspaceContent.current?.focus();
             }}
           >
             {workspaceName.slice(0, 2).toUpperCase()}

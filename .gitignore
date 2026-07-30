@@ -6,7 +6,7 @@ build/
 target/
 .gradle/
 out/
-release/
+/release/
 work/
 *.log
 *.pid

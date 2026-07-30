@@ -79,6 +79,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: actions/download-artifact@v4
         with:
           name: command-ide-linux-x64
@@ -86,6 +89,9 @@ jobs:
       - name: Install candidate
         shell: bash
         run: |
+          node scripts/verify-release-artifacts.mjs \
+            --release-dir release \
+            --require-linux-packages
           sudo apt-get update
           sudo apt-get install --yes xvfb
           deb="$(find release -maxdepth 1 -type f -name '*.deb' -print -quit)"
@@ -96,6 +102,7 @@ jobs:
           test -x "$executable"
           dpkg --listfiles "$package_name" | grep -Eq '/icons/.+\.(svg|png)$'
           printf 'PACKAGE_NAME=%s\n' "$package_name" >> "$GITHUB_ENV"
+          printf 'PACKAGE_FILE=%s\n' "$deb" >> "$GITHUB_ENV"
           printf 'CMD_IDE_INSTALLED_EXECUTABLE=%s\n' "$executable" >> "$GITHUB_ENV"
       - name: Launch without Java overrides
         shell: bash
@@ -103,7 +110,9 @@ jobs:
           data_dir="$RUNNER_TEMP/command-ide-deb-data"
           mkdir -p "$data_dir"
           printf '{"preserve":true}\n' > "$data_dir/exported-project.cmdbuilder.json"
-          CMD_IDE_DATA_DIR="$data_dir" node tests/integration/installed-health.mjs
+          CMD_IDE_DATA_DIR="$data_dir" \
+          CMD_IDE_CANVAS_RESULT_PATH="$RUNNER_TEMP/command-ide-canvas-result.json" \
+          node tests/integration/installed-health.mjs
       - name: Record installed PTY throughput
         shell: bash
         run: |
@@ -114,6 +123,7 @@ jobs:
           CMD_IDE_JAVA="$resources_dir/runtime/bin/java" \
           CMD_IDE_WORKER_JAR="$resources_dir/worker/worker-all.jar" \
           CMD_IDE_DATA_DIR="$RUNNER_TEMP/command-ide-deb-performance" \
+          CMD_IDE_PTY_RESULT_PATH="$RUNNER_TEMP/command-ide-pty-result.json" \
           node tests/integration/pty-throughput.mjs
       - name: Uninstall without deleting user data
         shell: bash
@@ -121,6 +131,22 @@ jobs:
           sudo apt-get remove --yes "$PACKAGE_NAME"
           test ! -e "$CMD_IDE_INSTALLED_EXECUTABLE"
           test -f "$RUNNER_TEMP/command-ide-deb-data/exported-project.cmdbuilder.json"
+          node scripts/write-native-acceptance-record.mjs \
+            --target "${{ matrix.os }}" \
+            --package-format deb \
+            --package-name "$PACKAGE_NAME" \
+            --package-file "$PACKAGE_FILE" \
+            --source-revision "$GITHUB_SHA" \
+            --canvas-result "$RUNNER_TEMP/command-ide-canvas-result.json" \
+            --pty-result "$RUNNER_TEMP/command-ide-pty-result.json" \
+            --output "work/native-acceptance/${{ matrix.os }}-deb.json"
+      - name: Upload native acceptance record
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-acceptance-${{ matrix.os }}-deb
+          path: work/native-acceptance/${{ matrix.os }}-deb.json
+          if-no-files-found: error
+          retention-days: 14
 
   fedora-rpm:
     name: rpm install / smoke / uninstall (Fedora 44 container)
@@ -130,8 +156,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Install test prerequisites
-        run: dnf install --assumeyes findutils nodejs shadow-utils xorg-x11-server-Xvfb
+        run: dnf install --assumeyes findutils shadow-utils xorg-x11-server-Xvfb
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: actions/download-artifact@v4
         with:
           name: command-ide-linux-x64
@@ -139,6 +168,9 @@ jobs:
       - name: Install candidate
         shell: bash
         run: |
+          node scripts/verify-release-artifacts.mjs \
+            --release-dir release \
+            --require-linux-packages
           rpm_file="$(find release -maxdepth 1 -type f -name '*.rpm' -print -quit)"
           test -n "$rpm_file"
           dnf install --assumeyes "$rpm_file"
@@ -147,6 +179,7 @@ jobs:
           test -x "$executable"
           rpm --query --list "$package_name" | grep -Eq '/icons/.+\.(svg|png)$'
           printf 'PACKAGE_NAME=%s\n' "$package_name" >> "$GITHUB_ENV"
+          printf 'PACKAGE_FILE=%s\n' "$rpm_file" >> "$GITHUB_ENV"
           printf 'CMD_IDE_INSTALLED_EXECUTABLE=%s\n' "$executable" >> "$GITHUB_ENV"
       - name: Record installed PTY throughput as an unprivileged user
         shell: bash
@@ -164,6 +197,7 @@ jobs:
             CMD_IDE_JAVA="$resources_dir/runtime/bin/java" \
             CMD_IDE_WORKER_JAR="$resources_dir/worker/worker-all.jar" \
             CMD_IDE_DATA_DIR="$performance_dir" \
+            CMD_IDE_PTY_RESULT_PATH="$performance_dir/pty-result.json" \
             node tests/integration/pty-throughput.mjs
       - name: Launch as an unprivileged user without Java overrides
         shell: bash
@@ -176,6 +210,7 @@ jobs:
             HOME=/home/commandide-smoke \
             CMD_IDE_INSTALLED_EXECUTABLE="$CMD_IDE_INSTALLED_EXECUTABLE" \
             CMD_IDE_DATA_DIR="$data_dir" \
+            CMD_IDE_CANVAS_RESULT_PATH="$data_dir/canvas-result.json" \
             node tests/integration/installed-health.mjs
       - name: Uninstall without deleting user data
         shell: bash
@@ -183,3 +218,49 @@ jobs:
           dnf remove --assumeyes "$PACKAGE_NAME"
           test ! -e "$CMD_IDE_INSTALLED_EXECUTABLE"
           test -f /tmp/command-ide-rpm-data/exported-project.cmdbuilder.json
+          node scripts/write-native-acceptance-record.mjs \
+            --target fedora-44 \
+            --package-format rpm \
+            --package-name "$PACKAGE_NAME" \
+            --package-file "$PACKAGE_FILE" \
+            --source-revision "$GITHUB_SHA" \
+            --canvas-result /tmp/command-ide-rpm-data/canvas-result.json \
+            --pty-result /tmp/command-ide-rpm-performance/pty-result.json \
+            --output work/native-acceptance/fedora-44-rpm.json
+      - name: Upload native acceptance record
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-acceptance-fedora-44-rpm
+          path: work/native-acceptance/fedora-44-rpm.json
+          if-no-files-found: error
+          retention-days: 14
+
+  native-acceptance-records:
+    name: Verify native acceptance evidence
+    needs:
+      - ubuntu-deb
+      - fedora-rpm
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-acceptance-*
+          path: native-acceptance
+          merge-multiple: true
+      - name: Verify complete revision-bound target matrix
+        run: |
+          node scripts/verify-native-acceptance-records.mjs \
+            --records-dir native-acceptance \
+            --expected-revision "$GITHUB_SHA"
+      - name: Publish verified native acceptance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-ide-native-acceptance-records
+          path: native-acceptance/*.json
+          if-no-files-found: error
+          retention-days: 14

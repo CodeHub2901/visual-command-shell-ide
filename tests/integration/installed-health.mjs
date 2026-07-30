@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { writeProbeResult } from "./probe-result.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const executable = process.env.CMD_IDE_INSTALLED_EXECUTABLE;
@@ -66,8 +67,17 @@ assert.match(stderrText, /OpenAI write-only credential and curated-model workspa
 assert.match(stderrText, /keyboard shortcuts and workspace focus validated/i);
 assert.match(stderrText, /collapsible terminal layout and session state validated/i);
 const canvasMeasurement = stderrText.match(
-  /Interactive React Flow large-canvas: render \d+(?:\.\d+)? ms, zoom p95 \d+(?:\.\d+)? ms \(1,000 nodes\)\./i
+  /Interactive React Flow large-canvas: render (\d+(?:\.\d+)?) ms, zoom p95 (\d+(?:\.\d+)?) ms \(1,000 nodes\)\./i
 );
 assert.ok(canvasMeasurement, `Installed smoke did not report a large-canvas measurement\n${stderrText}`);
+writeProbeResult("CMD_IDE_CANVAS_RESULT_PATH", {
+  schemaVersion: "1.0.0",
+  probe: "interactive-canvas",
+  nodeCount: 1_000,
+  renderMs: Number(canvasMeasurement[1]),
+  zoomP95Ms: Number(canvasMeasurement[2]),
+  bundledRuntime: true,
+  rendererWorkflow: true
+});
 process.stdout.write(`${canvasMeasurement[0]}\n`);
 process.stdout.write("Installed app launched with bundled Java and passed renderer-to-worker smoke checks.\n");

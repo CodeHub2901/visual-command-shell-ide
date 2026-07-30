@@ -11,7 +11,7 @@ v1 completion gate.
 
 | Spec lines | Requirement | Status | Repository evidence |
 | --- | --- | --- | --- |
-| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | External acceptance | `apps/desktop/package.json`, `.github/workflows/linux-release.yml`, `tests/integration/installed-health.mjs`; recorded native workflow results and Fedora clean-VM evidence remain required. |
+| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | External acceptance | `apps/desktop/package.json`, `.github/workflows/linux-release.yml`, `tests/integration/installed-health.mjs`, and the strict revision-bound native acceptance record verifier; recorded native workflow results and Fedora clean-VM evidence remain required. |
 | 9-14 | Electron/React/TypeScript/Vite, Java 21, jlink, private framed stdio JSON-RPC, Apache-2.0, Guided and Compact modes | Implemented | Root/desktop/worker build files, Maven wrapper, `docs/adr/0001-process-boundaries.md`, `docs/adr/0002-framed-json-rpc.md`, `LICENSE`, Electron smoke. No Gradle or Spring Boot is present. |
 | 20-22 | Navigation/sidebar/workspaces, React Flow, Monaco, xterm, collapsible terminal | Implemented | `apps/desktop/src/renderer/App.tsx`, `ShellProgramCanvas.tsx`, `MonacoBashEditor.tsx`, `XtermTerminal.tsx`, terminal layout tests and Electron smoke. |
 | 23 | Sandboxed renderer, isolation, CSP, blocked navigation, narrow preload | Implemented | `apps/desktop/src/main/security.ts`, `security.test.ts`, renderer CSP, main navigation handlers, validated preload schemas. |
@@ -29,7 +29,7 @@ v1 completion gate.
 | 73-76 | Versioned shared contracts, validation in Electron and Java, safe logs, SQLite without credentials/terminal secrets | Implemented | `v1.*` methods and schemas, strict preload/main/worker parsing, framed stdout with stderr diagnostics, SQLite schema/secret tests. |
 | 83-84 | Checksums, SBOM, notices, release/reproducibility docs, open-source governance/templates | Implemented | Release metadata/finalization scripts, CycloneDX and license aggregation, `NOTICE`, README/architecture/security/governance/contribution documents and GitHub templates. Artifact publication still follows native acceptance. |
 | 89-91 | Unit/property coverage for compaction, quoting, conflicts, parameters, risk, overlays, export, redaction | Implemented | Contract, Vitest, Maven unit/property suites and the full `pnpm verify` gate. |
-| 92 | Catalog/manual/execution checks on all three Linux targets | External acceptance | Native Ubuntu 24.04/26.04 and Fedora 44 workflow jobs are authored; their recorded CI/VM results remain a release gate. |
+| 92 | Catalog/manual/execution checks on all three Linux targets | External acceptance | Native Ubuntu 24.04/26.04 and Fedora 44 workflow jobs emit structured target records only after install, launch, PTY, uninstall, and data-preservation checks. The aggregate verifier requires all records to share the checked-out source revision; a recorded run remains a release gate. |
 | 93 | PTY streaming, resize, stdin, cancellation, nonzero exit, tree cleanup, sudo non-retention | Implemented; native Linux run required | Cross-platform service tests pass locally; Linux-only Pty4J tests are present and intentionally skipped on Windows. `tests/integration/pty-throughput.mjs` measures 4 MiB end-to-end through Pty4J and framed JSON-RPC from both source and installed deb/rpm runtimes. |
 | 94-95 | Mocked AI failure matrix and no autonomous execution | Implemented | Ollama/OpenAI/provider/service/RPC tests and proposal schema invariant. |
 | 96 | Electron E2E across primary workflows, accessibility, keyboard, isolation | Implemented with composite coverage | Electron smoke covers both modes, manuals, semantic visual editing, bookmarks, language tools, clipboard, terminal/history, AI, accessibility focus/shortcuts, and isolation; worker integration covers project reopen/export generation. Native file-dialog/installer behavior is covered by the Linux release workflow. |
@@ -40,9 +40,10 @@ v1 completion gate.
 
 ## Current release blockers
 
-1. Record the native `linux-release` workflow on Ubuntu 24.04, Ubuntu 26.04,
-   and Fedora 44, including install, launch, PTY execution, uninstall, data
-   preservation, and no-system-JDK evidence.
+1. Run the native `linux-release` workflow and retain its verified,
+   revision-bound acceptance artifact for Ubuntu 24.04, Ubuntu 26.04, and
+   Fedora 44. Each target record covers install, launch, PTY execution,
+   uninstall, data preservation, and no-system-JDK evidence.
 2. Repeat Fedora acceptance on a clean VM if container evidence is not accepted
    for the release sign-off.
 3. Complete artifact signing/publication approval.
