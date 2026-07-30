@@ -183,11 +183,15 @@ jobs:
     name: rpm install / smoke / uninstall (Fedora 44 container)
     needs: build
     runs-on: ubuntu-24.04
-    container: fedora:44
+    container:
+      image: fedora:44
+      options: --cap-add=SYS_ADMIN
     timeout-minutes: 20
     steps:
       - name: Install test prerequisites
-        run: dnf install --assumeyes findutils shadow-utils xorg-x11-server-Xvfb
+        run: |
+          dnf install --assumeyes findutils shadow-utils xorg-x11-server-Xvfb
+          unshare --pid --net --fork true
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
