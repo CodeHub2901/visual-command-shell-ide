@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/execution-request.schema.json",
+  "title": "ExecutionRequest",
+  "type": "object",
+  "required": ["program", "reviewedScript", "reviewHash", "interfaceMode", "confirmed", "typedConfirmation", "workingDirectory", "columns", "rows"],
+  "additionalProperties": false,
+  "properties": {
+    "program": { "$ref": "shell-program.schema.json" },
+    "reviewedScript": { "type": "string", "minLength": 1, "maxLength": 1000000 },
+    "reviewHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "interfaceMode": { "enum": ["guided", "compact"] },
+    "confirmed": { "type": "boolean" },
+    "typedConfirmation": { "type": ["string", "null"], "maxLength": 100 },
+    "workingDirectory": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "columns": { "type": "integer", "minimum": 2, "maximum": 500 },
+    "rows": { "type": "integer", "minimum": 2, "maximum": 200 }
+  }
+}

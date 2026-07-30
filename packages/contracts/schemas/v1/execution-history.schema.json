@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/execution-history.schema.json",
+  "title": "ExecutionHistoryList",
+  "type": "object",
+  "required": ["entries"],
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["executionId", "startedAt", "finishedAt", "workingDirectory", "exitStatus", "redactedCommandText", "riskLevel"],
+        "additionalProperties": false,
+        "properties": {
+          "executionId": { "type": "string", "format": "uuid" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "finishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "workingDirectory": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "exitStatus": { "type": ["integer", "null"] },
+          "redactedCommandText": { "type": "string", "maxLength": 1000000 },
+          "riskLevel": { "enum": ["low", "medium", "high", "critical"] }
+        }
+      }
+    }
+  }
+}

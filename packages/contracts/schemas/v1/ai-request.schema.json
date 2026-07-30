@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/ai-request.schema.json",
+  "title": "AiRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider", "endpoint", "model", "remoteEndpointConfirmed", "operation", "instruction", "source", "failureMessage"],
+  "properties": {
+    "provider": { "enum": ["ollama", "openai"] },
+    "endpoint": { "type": "string", "format": "uri", "maxLength": 2000 },
+    "model": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "remoteEndpointConfirmed": { "type": "boolean" },
+    "operation": { "enum": ["generateExample", "explain", "completeScript", "improveScript", "explainFailure"] },
+    "instruction": { "type": "string", "minLength": 1, "maxLength": 10000 },
+    "source": { "type": ["string", "null"], "maxLength": 1000000 },
+    "failureMessage": { "type": ["string", "null"], "maxLength": 20000 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "operation": { "not": { "const": "generateExample" } } } },
+      "then": { "properties": { "source": { "type": "string", "minLength": 1 } } }
+    },
+    {
+      "if": { "properties": { "operation": { "const": "explainFailure" } } },
+      "then": { "properties": { "failureMessage": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: chmod +x mvnw
+      - run: pnpm install --frozen-lockfile
+      - name: Configure Chromium sandbox helper
+        shell: bash
+        run: |
+          electron_executable="$(
+            cd apps/desktop
+            node -e "process.stdout.write(require('electron'))" | tail -n 1
+          )"
+          sandbox_helper="$(realpath "$(dirname "$electron_executable")/chrome-sandbox")"
+          printf 'Chromium sandbox helper: %s\n' "$sandbox_helper"
+          test -f "$sandbox_helper"
+          sudo chown 0:0 "$sandbox_helper"
+          sudo chmod 4755 "$sandbox_helper"
+          printf 'Chromium sandbox owner/mode: %s %s\n' \
+            "$(stat --format='%u:%g' "$sandbox_helper")" \
+            "$(stat --format='%a' "$sandbox_helper")"
+          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
+          test -u "$sandbox_helper"
+      - run: pnpm verify
+      - name: Build unpacked native application
+        run: pnpm pack:dir
+      - name: Configure packaged Chromium sandbox helper
+        shell: bash
+        run: |
+          sandbox_helper="$(realpath release/linux-unpacked/chrome-sandbox)"
+          printf 'Packaged Chromium sandbox helper: %s\n' "$sandbox_helper"
+          test -f "$sandbox_helper"
+          sudo chown 0:0 "$sandbox_helper"
+          sudo chmod 4755 "$sandbox_helper"
+          printf 'Packaged Chromium sandbox owner/mode: %s %s\n' \
+            "$(stat --format='%u:%g' "$sandbox_helper")" \
+            "$(stat --format='%a' "$sandbox_helper")"
+          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
+          test -u "$sandbox_helper"
+      - name: Verify bundled runtime and language server
+        run: pnpm test:packaged

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/shfmt-result.schema.json",
+  "title": "ShfmtResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "source", "changed", "reason"],
+  "properties": {
+    "status": { "enum": ["formatted", "unavailable", "failed"] },
+    "source": { "type": ["string", "null"], "maxLength": 1000000 },
+    "changed": { "type": "boolean" },
+    "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 1000 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "formatted" } } },
+      "then": {
+        "properties": {
+          "source": { "type": "string" },
+          "reason": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "source": { "type": "null" },
+          "changed": { "const": false },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  ]
+}

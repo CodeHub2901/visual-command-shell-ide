@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://commandide.dev/schemas/v1/system-profile.schema.json",
+  "title": "SystemProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operatingSystem", "architecture", "shell", "distro", "pathEntries"],
+  "properties": {
+    "operatingSystem": { "enum": ["linux", "macos", "windows", "other"] },
+    "architecture": { "type": "string", "minLength": 1 },
+    "shell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable", "dialect"],
+      "properties": {
+        "executable": { "type": "string" },
+        "dialect": { "enum": ["bash", "zsh", "powershell", "unknown"] }
+      }
+    },
+    "distro": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "versionId", "prettyName", "family", "supported"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "versionId": { "type": "string", "minLength": 1 },
+            "prettyName": { "type": "string", "minLength": 1 },
+            "family": { "enum": ["ubuntu", "fedora", "other"] },
+            "supported": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "pathEntries": {
+      "type": "array",
+      "maxItems": 512,
+      "items": { "type": "string" }
+    }
+  }
+}
+

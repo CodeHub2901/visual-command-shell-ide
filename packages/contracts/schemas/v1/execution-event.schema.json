@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/execution-event.schema.json",
+  "title": "ExecutionEvent",
+  "type": "object",
+  "required": ["sessionId", "sequence", "type", "data", "exitStatus", "message", "occurredAt"],
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": { "type": "string", "format": "uuid" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "type": { "enum": ["started", "output", "exit", "error"] },
+    "data": { "type": ["string", "null"], "maxLength": 16384 },
+    "exitStatus": { "type": ["integer", "null"] },
+    "message": { "type": ["string", "null"], "minLength": 1, "maxLength": 1000 },
+    "occurredAt": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "output" } } },
+      "then": { "properties": { "data": { "type": "string" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "exit" } } },
+      "then": { "properties": { "exitStatus": { "type": "integer" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "error" } } },
+      "then": { "properties": { "message": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

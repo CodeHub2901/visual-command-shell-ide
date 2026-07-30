@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/ai-proposal-result.schema.json",
+  "title": "AiProposalResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "proposal", "reason"],
+  "properties": {
+    "status": { "enum": ["proposed", "refused", "failed"] },
+    "proposal": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaVersion", "provider", "model", "operation", "proposedCode", "explanation", "assumptions", "warnings", "riskHints", "program", "diagnostics", "preservedRaw", "assessment"],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "provider": { "enum": ["ollama", "openai"] },
+            "model": { "type": "string", "minLength": 1, "maxLength": 500 },
+            "operation": { "enum": ["generateExample", "explain", "completeScript", "improveScript", "explainFailure"] },
+            "proposedCode": { "type": "string", "minLength": 1, "maxLength": 1000000 },
+            "explanation": { "type": "string", "minLength": 1, "maxLength": 20000 },
+            "assumptions": { "type": "array", "maxItems": 50, "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+            "warnings": { "type": "array", "maxItems": 100, "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+            "riskHints": { "type": "array", "maxItems": 50, "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+            "program": { "$ref": "shell-program.schema.json" },
+            "diagnostics": {
+              "type": "array",
+              "maxItems": 1000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["severity", "code", "message", "startOffset", "endOffset"],
+                "properties": {
+                  "severity": { "enum": ["info", "warning", "error"] },
+                  "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+                  "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+                  "startOffset": { "type": "integer", "minimum": 0 },
+                  "endOffset": { "type": "integer", "minimum": 0 }
+                }
+              }
+            },
+            "preservedRaw": { "type": "boolean" },
+            "assessment": { "$ref": "risk-assessment.schema.json" }
+          }
+        }
+      ]
+    },
+    "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": { "const": "proposed" },
+        "proposal": { "type": "object" },
+        "reason": { "type": "null" }
+      }
+    },
+    {
+      "properties": {
+        "status": { "enum": ["refused", "failed"] },
+        "proposal": { "type": "null" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  ]
+}

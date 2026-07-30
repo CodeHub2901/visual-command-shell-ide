@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/script-project.schema.json",
+  "title": "ScriptProject",
+  "type": "object",
+  "required": ["schemaVersion", "projectId", "name", "createdAt", "updatedAt", "catalogVersion", "target", "program", "layout", "parameters"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1.4.0" },
+    "projectId": { "type": "string", "format": "uuid" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "catalogVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "target": { "type": "object" },
+    "program": { "$ref": "shell-program.schema.json" },
+    "layout": { "type": "object" },
+    "parameters": { "type": "array", "maxItems": 200 }
+  }
+}

@@ -1,0 +1,471 @@
+{
+  "schemaVersion": "1.2.0",
+  "commands": [
+    {
+      "id": "pwd", "executable": "pwd", "versionProbeArguments": ["--version"], "displayName": "pwd",
+      "summary": "Print the current working directory", "category": "Files",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [], "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "logical", "flags": ["-L", "--logical"], "description": "Use the logical path from the environment, including symbolic links.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["physical"]},
+        {"id": "physical", "flags": ["-P", "--physical"], "description": "Resolve symbolic links in the printed path.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["logical"]}
+      ],
+      "examples": ["pwd", "pwd -P"],
+      "manual": {"synopsis": "pwd [OPTION]...", "sections": [
+        {"heading": "Description", "body": "Prints the absolute name of the current working directory."},
+        {"heading": "Safety", "body": "Reads process and filesystem path information without modifying it."}
+      ]}
+    },
+    {
+      "id": "ln", "executable": "ln", "versionProbeArguments": ["--version"], "displayName": "ln",
+      "summary": "Create hard or symbolic links", "category": "Files",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "target", "label": "TARGET", "description": "Existing path that the link should reference.", "required": true, "repeatable": false},
+        {"id": "link-name", "label": "LINK_NAME", "description": "Path of the link to create.", "required": false, "repeatable": false}
+      ],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "symbolic", "flags": ["-s", "--symbolic"], "description": "Create a symbolic link instead of a hard link.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "relative", "flags": ["-r", "--relative"], "description": "With symbolic, make the link target relative to the link location.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "force", "flags": ["-f", "--force"], "description": "Remove an existing destination before creating the link.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["interactive"]},
+        {"id": "interactive", "flags": ["-i", "--interactive"], "description": "Prompt before removing an existing destination.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["force"]},
+        {"id": "no-dereference", "flags": ["-n", "--no-dereference"], "description": "Treat a destination symlink to a directory as a normal file.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["ln report.txt latest.txt", "ln -s ../releases/current app-current"],
+      "manual": {"synopsis": "ln [OPTION]... TARGET [LINK_NAME]", "sections": [
+        {"heading": "Description", "body": "Creates a hard link by default or a symbolic link when requested."},
+        {"heading": "Risk", "body": "Creates directory entries and force mode can replace an existing destination."}
+      ]}
+    },
+    {
+      "id": "readlink", "executable": "readlink", "versionProbeArguments": ["--version"], "displayName": "readlink",
+      "summary": "Print a symbolic link target or canonical path", "category": "Files",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "files", "label": "FILE", "description": "Symbolic links or paths to inspect.", "required": true, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "canonicalize", "flags": ["-f", "--canonicalize"], "description": "Canonicalize by following every symlink; all but the final component must exist.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["canonicalize-existing", "canonicalize-missing"]},
+        {"id": "canonicalize-existing", "flags": ["-e", "--canonicalize-existing"], "description": "Canonicalize only when every path component exists.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["canonicalize", "canonicalize-missing"]},
+        {"id": "canonicalize-missing", "flags": ["-m", "--canonicalize-missing"], "description": "Canonicalize without requiring any path component to exist.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["canonicalize", "canonicalize-existing"]},
+        {"id": "no-newline", "flags": ["-n", "--no-newline"], "description": "Do not output a trailing delimiter.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "zero", "flags": ["-z", "--zero"], "description": "End each output with NUL instead of newline.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["readlink current", "readlink -f ./config/../settings.json"],
+      "manual": {"synopsis": "readlink [OPTION]... FILE...", "sections": [
+        {"heading": "Description", "body": "Prints symbolic-link values or canonicalized path names."},
+        {"heading": "Safety", "body": "Inspects path metadata without changing links or targets."}
+      ]}
+    },
+    {
+      "id": "realpath", "executable": "realpath", "versionProbeArguments": ["--version"], "displayName": "realpath",
+      "summary": "Resolve and print absolute path names", "category": "Files",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "files", "label": "FILE", "description": "Paths to resolve.", "required": true, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "canonicalize-existing", "flags": ["-e", "--canonicalize-existing"], "description": "Require every component of the path to exist.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["canonicalize-missing"]},
+        {"id": "canonicalize-missing", "flags": ["-m", "--canonicalize-missing"], "description": "Resolve path components without requiring them to exist.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["canonicalize-existing"]},
+        {"id": "logical", "flags": ["-L", "--logical"], "description": "Resolve parent references before symbolic links.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["physical"]},
+        {"id": "physical", "flags": ["-P", "--physical"], "description": "Resolve symbolic links before parent references.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["logical"]},
+        {"id": "relative-to", "flags": ["--relative-to"], "description": "Print paths relative to the selected directory.", "takesValue": true, "valueName": "DIRECTORY", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["realpath README.md", "realpath --relative-to . /var/log/syslog"],
+      "manual": {"synopsis": "realpath [OPTION]... FILE...", "sections": [
+        {"heading": "Description", "body": "Expands path names into canonical absolute or requested relative forms."},
+        {"heading": "Safety", "body": "Resolves path information without modifying filesystem objects."}
+      ]}
+    },
+    {
+      "id": "basename", "executable": "basename", "versionProbeArguments": ["--version"], "displayName": "basename",
+      "summary": "Strip directory and suffix from path names", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "names", "label": "NAME", "description": "Path names to reduce to their final component.", "required": true, "repeatable": true}
+      ],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "multiple", "flags": ["-a", "--multiple"], "description": "Accept multiple path-name arguments.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "suffix", "flags": ["-s", "--suffix"], "description": "Remove the specified trailing suffix.", "takesValue": true, "valueName": "SUFFIX", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "zero", "flags": ["-z", "--zero"], "description": "End each output with NUL instead of newline.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["basename /srv/app/config.yaml", "basename -s .tar archive.tar"],
+      "manual": {"synopsis": "basename NAME [SUFFIX] | basename OPTION... NAME...", "sections": [
+        {"heading": "Description", "body": "Prints the final component of each path after optional suffix removal."},
+        {"heading": "Safety", "body": "Transforms path text without accessing or changing the named files."}
+      ]}
+    },
+    {
+      "id": "dirname", "executable": "dirname", "versionProbeArguments": ["--version"], "displayName": "dirname",
+      "summary": "Strip the final component from path names", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "names", "label": "NAME", "description": "Path names whose directory components should be printed.", "required": true, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "zero", "flags": ["-z", "--zero"], "description": "End each output with NUL instead of newline.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["dirname /srv/app/config.yaml", "dirname src/main/java/App.java"],
+      "manual": {"synopsis": "dirname [OPTION]... NAME...", "sections": [
+        {"heading": "Description", "body": "Prints each path with its final slash-delimited component removed."},
+        {"heading": "Safety", "body": "Transforms path text without modifying filesystem objects."}
+      ]}
+    },
+    {
+      "id": "cut", "executable": "cut", "versionProbeArguments": ["--version"], "displayName": "cut",
+      "summary": "Select bytes, characters, or fields from input lines", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "files", "label": "FILE", "description": "Input files; standard input is used when omitted.", "required": false, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "bytes", "flags": ["-b", "--bytes"], "description": "Select only the specified byte ranges.", "takesValue": true, "valueName": "LIST", "repeatable": false, "combinable": false, "conflictsWith": ["characters", "fields"]},
+        {"id": "characters", "flags": ["-c", "--characters"], "description": "Select only the specified character ranges.", "takesValue": true, "valueName": "LIST", "repeatable": false, "combinable": false, "conflictsWith": ["bytes", "fields"]},
+        {"id": "fields", "flags": ["-f", "--fields"], "description": "Select only the specified field ranges.", "takesValue": true, "valueName": "LIST", "repeatable": false, "combinable": false, "conflictsWith": ["bytes", "characters"]},
+        {"id": "delimiter", "flags": ["-d", "--delimiter"], "description": "Use the selected input field delimiter instead of TAB.", "takesValue": true, "valueName": "DELIMITER", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "only-delimited", "flags": ["-s", "--only-delimited"], "description": "Do not print lines that contain no delimiter.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["cut -d : -f 1 /etc/passwd", "cut -c 1-12 report.txt"],
+      "manual": {"synopsis": "cut OPTION... [FILE]...", "sections": [
+        {"heading": "Description", "body": "Writes selected portions of each input line to standard output."},
+        {"heading": "Safety", "body": "Reads input without modifying it."}
+      ]}
+    },
+    {
+      "id": "tr", "executable": "tr", "versionProbeArguments": ["--version"], "displayName": "tr",
+      "summary": "Translate, squeeze, or delete characters", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "set1", "label": "SET1", "description": "Input character set.", "required": true, "repeatable": false},
+        {"id": "set2", "label": "SET2", "description": "Replacement or squeeze character set.", "required": false, "repeatable": false}
+      ],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "complement", "flags": ["-c", "-C", "--complement"], "description": "Use the complement of the first character set.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "delete", "flags": ["-d", "--delete"], "description": "Delete characters in the first set instead of translating them.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "squeeze-repeats", "flags": ["-s", "--squeeze-repeats"], "description": "Replace each repeated character run with one occurrence.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "truncate-set1", "flags": ["-t", "--truncate-set1"], "description": "Truncate the first set to the length of the second set.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["tr '[:lower:]' '[:upper:]'", "tr -d '\\r'"],
+      "manual": {"synopsis": "tr [OPTION]... SET1 [SET2]", "sections": [
+        {"heading": "Description", "body": "Transforms characters read from standard input and writes the result to standard output."},
+        {"heading": "Safety", "body": "Does not modify files unless the surrounding shell redirects its output."}
+      ]}
+    },
+    {
+      "id": "uniq", "executable": "uniq", "versionProbeArguments": ["--version"], "displayName": "uniq",
+      "summary": "Report or omit adjacent repeated lines", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "input", "label": "INPUT", "description": "Input file; standard input is used when omitted.", "required": false, "repeatable": false},
+        {"id": "output", "label": "OUTPUT", "description": "Optional file to receive the result.", "required": false, "repeatable": false}
+      ],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "count", "flags": ["-c", "--count"], "description": "Prefix each line with its occurrence count.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "repeated", "flags": ["-d", "--repeated"], "description": "Print only duplicated line groups.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["unique"]},
+        {"id": "unique", "flags": ["-u", "--unique"], "description": "Print only lines that are not repeated.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["repeated"]},
+        {"id": "ignore-case", "flags": ["-i", "--ignore-case"], "description": "Ignore case differences when comparing lines.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "skip-fields", "flags": ["-f", "--skip-fields"], "description": "Ignore the specified number of leading fields.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["uniq names.sorted", "uniq -ci events.sorted"],
+      "manual": {"synopsis": "uniq [OPTION]... [INPUT [OUTPUT]]", "sections": [
+        {"heading": "Description", "body": "Compares adjacent lines and prints selected duplicate or unique groups."},
+        {"heading": "Risk", "body": "Supplying OUTPUT writes a file; omit it for a read-only standard-output operation."}
+      ]}
+    },
+    {
+      "id": "tee", "executable": "tee", "versionProbeArguments": ["--version"], "displayName": "tee",
+      "summary": "Copy standard input to files and standard output", "category": "Text",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "files", "label": "FILE", "description": "Files that should receive a copy of standard input.", "required": true, "repeatable": true}],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "append", "flags": ["-a", "--append"], "description": "Append to files instead of overwriting them.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "ignore-interrupts", "flags": ["-i", "--ignore-interrupts"], "description": "Ignore interrupt signals.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["tee output.txt", "tee -a service.log"],
+      "manual": {"synopsis": "tee [OPTION]... [FILE]...", "sections": [
+        {"heading": "Description", "body": "Copies standard input to standard output and to every selected file."},
+        {"heading": "Risk", "body": "Overwrites selected files by default or appends when requested."}
+      ]}
+    },
+    {
+      "id": "xargs", "executable": "xargs", "versionProbeArguments": ["--version"], "displayName": "xargs",
+      "summary": "Build and execute command lines from standard input", "category": "Processes",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "command", "label": "COMMAND", "description": "Command to execute; echo is used when omitted.", "required": false, "repeatable": false},
+        {"id": "initial-arguments", "label": "ARGUMENT", "description": "Arguments placed before values read from standard input.", "required": false, "repeatable": true}
+      ],
+      "riskTags": ["system-change"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "null", "flags": ["-0", "--null"], "description": "Read NUL-delimited items and treat every character literally.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "max-args", "flags": ["-n", "--max-args"], "description": "Use at most the specified number of input items per invocation.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": ["replace"]},
+        {"id": "max-procs", "flags": ["-P", "--max-procs"], "description": "Run up to the specified number of processes concurrently.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "replace", "flags": ["-I", "--replace"], "description": "Replace occurrences of a token in initial arguments with each input line.", "takesValue": true, "valueName": "TOKEN", "repeatable": false, "combinable": false, "conflictsWith": ["max-args"]},
+        {"id": "no-run-if-empty", "flags": ["-r", "--no-run-if-empty"], "description": "Do not execute the command when standard input has no items.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["printf '%s\\0' one two | xargs -0 printf '%s\\n'", "find src -name '*.java' -print0 | xargs -0 -n 20 grep -n TODO"],
+      "manual": {"synopsis": "xargs [OPTION]... [COMMAND [INITIAL-ARGUMENTS]...]", "sections": [
+        {"heading": "Description", "body": "Reads items from standard input and invokes a command with those items as arguments."},
+        {"heading": "Risk", "body": "Executes another command, possibly many times or concurrently; review delimiters and the complete delegated command."}
+      ]}
+    },
+    {
+      "id": "locate", "executable": "locate", "versionProbeArguments": ["--version"], "displayName": "locate",
+      "summary": "Find path names using a file-name database", "category": "Search",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "patterns", "label": "PATTERN", "description": "Name or path patterns to find in the locate database.", "required": true, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "basename", "flags": ["-b", "--basename"], "description": "Match only the final path component.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "count", "flags": ["-c", "--count"], "description": "Print only the number of matches.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "ignore-case", "flags": ["-i", "--ignore-case"], "description": "Match patterns without regard to case.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "limit", "flags": ["-l", "--limit"], "description": "Stop after the specified number of matches.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "existing", "flags": ["-e", "--existing"], "description": "Print only paths that still exist when they are checked.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["locate '*.service'", "locate -bi readme"],
+      "manual": {"synopsis": "locate [OPTION]... PATTERN...", "sections": [
+        {"heading": "Description", "body": "Searches a periodically updated file-name database and prints matching paths."},
+        {"heading": "Freshness", "body": "Results reflect the database snapshot and may include removed paths or omit newly created paths."}
+      ]}
+    },
+    {
+      "id": "pgrep", "executable": "pgrep", "versionProbeArguments": ["--version"], "displayName": "pgrep",
+      "summary": "Find process IDs by name and attributes", "category": "Processes",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "pattern", "label": "PATTERN", "description": "Regular expression matched against process names or command lines.", "required": true, "repeatable": false}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "full", "flags": ["-f", "--full"], "description": "Match against the complete command line.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "exact", "flags": ["-x", "--exact"], "description": "Require the process name or command line to match exactly.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "newest", "flags": ["-n", "--newest"], "description": "Select only the most recently started match.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["oldest"]},
+        {"id": "oldest", "flags": ["-o", "--oldest"], "description": "Select only the least recently started match.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["newest"]},
+        {"id": "euid", "flags": ["-u", "--euid"], "description": "Match processes whose effective user ID is in the list.", "takesValue": true, "valueName": "USER,...", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["pgrep sshd", "pgrep -fx 'python3 worker.py'"],
+      "manual": {"synopsis": "pgrep [OPTION]... PATTERN", "sections": [
+        {"heading": "Description", "body": "Searches running processes and prints identifiers that satisfy all selected criteria."},
+        {"heading": "Matching", "body": "Name matching is limited unless full command-line matching is selected."}
+      ]}
+    },
+    {
+      "id": "pkill", "executable": "pkill", "versionProbeArguments": ["--version"], "displayName": "pkill",
+      "summary": "Signal processes selected by name and attributes", "category": "Processes",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "pattern", "label": "PATTERN", "description": "Regular expression used to select processes.", "required": true, "repeatable": false}],
+      "riskTags": ["process-signal"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "signal", "flags": ["--signal"], "description": "Send the selected signal instead of SIGTERM.", "takesValue": true, "valueName": "SIGNAL", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "full", "flags": ["-f", "--full"], "description": "Match against the complete command line.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "exact", "flags": ["-x", "--exact"], "description": "Require an exact process-name or command-line match.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "newest", "flags": ["-n", "--newest"], "description": "Signal only the most recently started match.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["oldest"]},
+        {"id": "oldest", "flags": ["-o", "--oldest"], "description": "Signal only the least recently started match.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["newest"]},
+        {"id": "euid", "flags": ["-u", "--euid"], "description": "Match processes whose effective user ID is in the list.", "takesValue": true, "valueName": "USER,...", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["pkill -x worker", "pkill --signal HUP -f 'nginx: master'"],
+      "manual": {"synopsis": "pkill [OPTION]... PATTERN", "sections": [
+        {"heading": "Description", "body": "Selects processes by name and attributes and sends each one a signal."},
+        {"heading": "Risk", "body": "A broad or incorrect pattern can interrupt multiple unrelated processes."}
+      ]}
+    },
+    {
+      "id": "top", "executable": "top", "versionProbeArguments": ["--version"], "displayName": "top",
+      "summary": "Display a live view of processes and system load", "category": "Processes",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [], "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "batch", "flags": ["-b", "--batch"], "description": "Write non-interactive output suitable for redirection.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "iterations", "flags": ["-n", "--iterations"], "description": "Exit after the specified number of updates.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "delay", "flags": ["-d", "--delay"], "description": "Wait the specified number of seconds between updates.", "takesValue": true, "valueName": "SECONDS", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "pid", "flags": ["-p", "--pid"], "description": "Monitor only the selected comma-separated process IDs.", "takesValue": true, "valueName": "PID,...", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "user", "flags": ["-u", "--filter-only-euser"], "description": "Show only processes with the selected effective user.", "takesValue": true, "valueName": "USER", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["top", "top -b -n 1"],
+      "manual": {"synopsis": "top [OPTION]...", "sections": [
+        {"heading": "Description", "body": "Displays a continuously updated process list and system summary."},
+        {"heading": "Lifecycle", "body": "Interactive mode remains active until quit; batch mode should use a bounded iteration count when appropriate."}
+      ]}
+    },
+    {
+      "id": "hostnamectl", "executable": "hostnamectl", "versionProbeArguments": ["--version"], "displayName": "hostnamectl",
+      "summary": "Inspect or change the system host name", "category": "System",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "command", "label": "COMMAND", "description": "Operation such as status or hostname.", "required": false, "repeatable": false},
+        {"id": "name", "label": "NAME", "description": "Host name supplied to a changing operation.", "required": false, "repeatable": false}
+      ],
+      "riskTags": ["system-change", "privilege"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "static", "flags": ["--static"], "description": "Operate on the static host name.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "transient", "flags": ["--transient"], "description": "Operate on the transient host name.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "pretty", "flags": ["--pretty"], "description": "Operate on the descriptive pretty host name.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "no-ask-password", "flags": ["--no-ask-password"], "description": "Do not prompt for authentication.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["hostnamectl status", "hostnamectl hostname build-node-01"],
+      "manual": {"synopsis": "hostnamectl [OPTIONS...] [COMMAND [ARGUMENTS...]]", "sections": [
+        {"heading": "Description", "body": "Queries system host-name metadata or requests a host-name change through systemd."},
+        {"heading": "Risk", "body": "Changing a host name affects system identity and generally requires authorization."}
+      ]}
+    },
+    {
+      "id": "timedatectl", "executable": "timedatectl", "versionProbeArguments": ["--version"], "displayName": "timedatectl",
+      "summary": "Inspect or change system time settings", "category": "System",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "command", "label": "COMMAND", "description": "Operation such as status, set-timezone, or set-ntp.", "required": false, "repeatable": false},
+        {"id": "value", "label": "VALUE", "description": "Value supplied to the selected operation.", "required": false, "repeatable": false}
+      ],
+      "riskTags": ["system-change", "privilege"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "no-ask-password", "flags": ["--no-ask-password"], "description": "Do not prompt for authentication.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "adjust-system-clock", "flags": ["--adjust-system-clock"], "description": "Synchronize the system clock when changing local-RTC mode.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["timedatectl status", "timedatectl set-timezone Asia/Kolkata"],
+      "manual": {"synopsis": "timedatectl [OPTIONS...] [COMMAND]", "sections": [
+        {"heading": "Description", "body": "Queries or controls system time, time zone, RTC, and network-time synchronization settings."},
+        {"heading": "Risk", "body": "Changing clocks or time zones affects timestamps, schedules, authentication, and distributed services."}
+      ]}
+    },
+    {
+      "id": "loginctl", "executable": "loginctl", "versionProbeArguments": ["--version"], "displayName": "loginctl",
+      "summary": "Inspect or control login sessions and users", "category": "System",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [
+        {"id": "command", "label": "COMMAND", "description": "Operation such as list-sessions, show-user, or terminate-session.", "required": false, "repeatable": false},
+        {"id": "names", "label": "NAME", "description": "Session, user, or seat identifiers.", "required": false, "repeatable": true}
+      ],
+      "riskTags": ["system-change", "process-signal", "privilege"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "property", "flags": ["-p", "--property"], "description": "Show only the selected property; may be repeated.", "takesValue": true, "valueName": "NAME", "repeatable": true, "combinable": false, "conflictsWith": []},
+        {"id": "value", "flags": ["--value"], "description": "Print property values without names.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "all", "flags": ["-a", "--all"], "description": "Show properties even when they are unset.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "no-pager", "flags": ["--no-pager"], "description": "Do not send output through a pager.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "no-ask-password", "flags": ["--no-ask-password"], "description": "Do not prompt for authentication.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["loginctl list-sessions", "loginctl show-user alice --property State --value"],
+      "manual": {"synopsis": "loginctl [OPTIONS...] {COMMAND} [NAME...]", "sections": [
+        {"heading": "Description", "body": "Introspects and controls systemd login sessions, users, and seats."},
+        {"heading": "Risk", "body": "Control operations can terminate sessions or signal all processes belonging to a user."}
+      ]}
+    },
+    {
+      "id": "blkid", "executable": "blkid", "versionProbeArguments": ["--version"], "displayName": "blkid",
+      "summary": "Print block-device content attributes", "category": "Storage",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "devices", "label": "DEVICE", "description": "Block devices to inspect.", "required": false, "repeatable": true}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "output", "flags": ["-o", "--output"], "description": "Use the selected output format.", "takesValue": true, "valueName": "FORMAT", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "match-tag", "flags": ["-s", "--match-tag"], "description": "Show only the selected tag; may be repeated.", "takesValue": true, "valueName": "TAG", "repeatable": true, "combinable": false, "conflictsWith": []},
+        {"id": "match-token", "flags": ["-t", "--match-token"], "description": "Search for a device with the selected NAME=value token.", "takesValue": true, "valueName": "NAME=VALUE", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "probe", "flags": ["-p", "--probe"], "description": "Use low-level superblock probing mode.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "uuid", "flags": ["-U", "--uuid"], "description": "Look up the device that has the selected UUID.", "takesValue": true, "valueName": "UUID", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["blkid", "blkid -s UUID -o value /dev/sda1"],
+      "manual": {"synopsis": "blkid [OPTION]... [DEVICE]...", "sections": [
+        {"heading": "Description", "body": "Reads filesystem, swap, RAID, and partition metadata from block devices or a cache."},
+        {"heading": "Safety", "body": "Inspection does not alter device contents, though direct probing may require privileges."}
+      ]}
+    },
+    {
+      "id": "findmnt", "executable": "findmnt", "versionProbeArguments": ["--version"], "displayName": "findmnt",
+      "summary": "List or find mounted filesystems", "category": "Storage",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "device-or-mountpoint", "label": "DEVICE|MOUNTPOINT", "description": "Optional device or mount point to find.", "required": false, "repeatable": false}],
+      "riskTags": ["read-only"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "json", "flags": ["-J", "--json"], "description": "Produce JSON output.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "list", "flags": ["-l", "--list"], "description": "Use list output instead of a tree.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "no-headings", "flags": ["-n", "--noheadings"], "description": "Do not print column headings.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "output", "flags": ["-o", "--output"], "description": "Select a comma-separated list of output columns.", "takesValue": true, "valueName": "COLUMNS", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "source", "flags": ["-S", "--source"], "description": "Search for a filesystem by source.", "takesValue": true, "valueName": "SOURCE", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "target", "flags": ["-T", "--target"], "description": "Show the filesystem containing the selected path.", "takesValue": true, "valueName": "PATH", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "types", "flags": ["-t", "--types"], "description": "Limit results to the selected filesystem types.", "takesValue": true, "valueName": "LIST", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["findmnt", "findmnt -T /srv/app -o TARGET,SOURCE,FSTYPE"],
+      "manual": {"synopsis": "findmnt [OPTION]... [DEVICE|MOUNTPOINT]", "sections": [
+        {"heading": "Description", "body": "Lists mounted filesystems or searches mount and fstab data by source or target."},
+        {"heading": "Scripting", "body": "Select explicit output columns because the default human-readable output can change."}
+      ]}
+    },
+    {
+      "id": "umount", "executable": "umount", "versionProbeArguments": ["--version"], "displayName": "umount",
+      "summary": "Detach filesystems from the directory tree", "category": "Storage",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "targets", "label": "DIRECTORY|DEVICE", "description": "Mounted directories or devices to detach.", "required": false, "repeatable": true}],
+      "riskTags": ["system-change", "privilege"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "all", "flags": ["-a", "--all"], "description": "Unmount eligible filesystems from the mount table.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "force", "flags": ["-f", "--force"], "description": "Force unmounting, primarily for an unreachable network filesystem.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "lazy", "flags": ["-l", "--lazy"], "description": "Detach now and clean references after they are no longer busy.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "recursive", "flags": ["-R", "--recursive"], "description": "Recursively unmount nested mounts below each selected directory.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "types", "flags": ["-t", "--types"], "description": "Operate only on the selected comma-separated filesystem types.", "takesValue": true, "valueName": "LIST", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "verbose", "flags": ["-v", "--verbose"], "description": "Report operations verbosely.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []}
+      ],
+      "examples": ["umount /mnt/archive", "umount -R /mnt/workspace"],
+      "manual": {"synopsis": "umount [OPTION]... DIRECTORY|DEVICE...", "sections": [
+        {"heading": "Description", "body": "Detaches selected filesystems from the visible directory hierarchy."},
+        {"heading": "Risk", "body": "Unmounting can disrupt applications, make files unavailable, or lose buffered work; recursive, forced, and lazy modes need extra review."}
+      ]}
+    },
+    {
+      "id": "wget", "executable": "wget", "versionProbeArguments": ["--version"], "displayName": "wget",
+      "summary": "Download files from network URLs", "category": "Networking",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "urls", "label": "URL", "description": "HTTP, HTTPS, or FTP resources to retrieve.", "required": true, "repeatable": true}],
+      "riskTags": ["network", "filesystem-write"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "output-document", "flags": ["-O", "--output-document"], "description": "Write all retrieved content to the selected file.", "takesValue": true, "valueName": "FILE", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "continue", "flags": ["-c", "--continue"], "description": "Continue a partially downloaded file.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "quiet", "flags": ["-q", "--quiet"], "description": "Suppress normal output.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "recursive", "flags": ["-r", "--recursive"], "description": "Follow links and retrieve resources recursively.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "no-clobber", "flags": ["-nc", "--no-clobber"], "description": "Do not overwrite files that already exist.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "tries", "flags": ["-t", "--tries"], "description": "Limit retrieval attempts to the selected count.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["wget https://example.com/archive.tar.xz", "wget -O data.json https://example.com/api/data"],
+      "manual": {"synopsis": "wget [OPTION]... [URL]...", "sections": [
+        {"heading": "Description", "body": "Retrieves resources over supported network protocols and normally stores them as local files."},
+        {"heading": "Risk", "body": "Creates or replaces files and downloads untrusted network content; recursive retrieval can be large."}
+      ]}
+    },
+    {
+      "id": "xz", "executable": "xz", "versionProbeArguments": ["--version"], "displayName": "xz",
+      "summary": "Compress or decompress files in the xz format", "category": "Files",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "files", "label": "FILE", "description": "Files to compress or decompress.", "required": true, "repeatable": true}],
+      "riskTags": ["filesystem-write"], "shortOptionPolicy": "combine-boolean",
+      "options": [
+        {"id": "compress", "flags": ["-z", "--compress"], "description": "Compress input files; this is the default operation.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["decompress"]},
+        {"id": "decompress", "flags": ["-d", "--decompress"], "description": "Decompress input files.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": ["compress"]},
+        {"id": "keep", "flags": ["-k", "--keep"], "description": "Keep input files after successful processing.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "force", "flags": ["-f", "--force"], "description": "Overwrite output files and process additional input types.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "stdout", "flags": ["-c", "--stdout"], "description": "Write output to standard output and keep input files.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true, "conflictsWith": []},
+        {"id": "threads", "flags": ["-T", "--threads"], "description": "Use up to the selected number of worker threads.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["xz -k dataset.csv", "xz -dk archive.tar.xz"],
+      "manual": {"synopsis": "xz [OPTION]... [FILE]...", "sections": [
+        {"heading": "Description", "body": "Compresses files to xz format or restores compressed input."},
+        {"heading": "Risk", "body": "Successful processing normally replaces input files unless keep or standard-output mode is selected."}
+      ]}
+    },
+    {
+      "id": "make", "executable": "make", "versionProbeArguments": ["--version"], "displayName": "make",
+      "summary": "Build targets by executing makefile recipes", "category": "Development",
+      "platforms": ["linux"], "distroFamilies": ["ubuntu", "fedora", "other"],
+      "arguments": [{"id": "targets-or-variables", "label": "TARGET|NAME=VALUE", "description": "Build goals and command-line variable assignments.", "required": false, "repeatable": true}],
+      "riskTags": ["system-change"], "shortOptionPolicy": "never",
+      "options": [
+        {"id": "directory", "flags": ["-C", "--directory"], "description": "Change to the selected directory before reading makefiles.", "takesValue": true, "valueName": "DIRECTORY", "repeatable": true, "combinable": false, "conflictsWith": []},
+        {"id": "file", "flags": ["-f", "--file", "--makefile"], "description": "Read build rules from the selected file.", "takesValue": true, "valueName": "FILE", "repeatable": true, "combinable": false, "conflictsWith": []},
+        {"id": "jobs", "flags": ["-j", "--jobs"], "description": "Run up to the selected number of recipes concurrently.", "takesValue": true, "valueName": "COUNT", "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "dry-run", "flags": ["-n", "--just-print", "--dry-run", "--recon"], "description": "Print recipes without executing most of them.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []},
+        {"id": "always-make", "flags": ["-B", "--always-make"], "description": "Treat all targets as out of date.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": false, "conflictsWith": []}
+      ],
+      "examples": ["make", "make -C apps/worker test"],
+      "manual": {"synopsis": "make [OPTION]... [TARGET|NAME=VALUE]...", "sections": [
+        {"heading": "Description", "body": "Reads dependency rules and executes recipes needed to update selected targets."},
+        {"heading": "Risk", "body": "Makefile recipes are executable commands and may change files, services, networks, or external systems."}
+      ]}
+    }
+  ]
+}

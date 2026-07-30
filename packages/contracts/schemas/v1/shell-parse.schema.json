@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/shell-parse.schema.json",
+  "title": "ShellParseResult",
+  "type": "object",
+  "required": ["program", "sourceSpans", "diagnostics", "preservedRaw"],
+  "additionalProperties": false,
+  "properties": {
+    "program": { "$ref": "shell-program.schema.json" },
+    "sourceSpans": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "#/$defs/sourceSpan" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "preservedRaw": { "type": "boolean" }
+  },
+  "$defs": {
+    "sourceSpan": {
+      "type": "object",
+      "required": ["nodeId", "startOffset", "endOffset", "startLine", "startColumn", "endLine", "endColumn"],
+      "additionalProperties": false,
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "startOffset": { "type": "integer", "minimum": 0 },
+        "endOffset": { "type": "integer", "minimum": 0 },
+        "startLine": { "type": "integer", "minimum": 1 },
+        "startColumn": { "type": "integer", "minimum": 1 },
+        "endLine": { "type": "integer", "minimum": 1 },
+        "endColumn": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "startOffset", "endOffset"],
+      "additionalProperties": false,
+      "properties": {
+        "severity": { "enum": ["info", "warning", "error"] },
+        "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "startOffset": { "type": "integer", "minimum": 0 },
+        "endOffset": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

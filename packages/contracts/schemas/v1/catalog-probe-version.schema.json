@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/catalog-probe-version.schema.json",
+  "title": "CatalogProbeVersionResult",
+  "type": "object",
+  "required": ["commandId", "status", "version", "cached", "truncated"],
+  "additionalProperties": false,
+  "properties": {
+    "commandId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "status": { "enum": ["detected", "unavailable", "failed", "timed-out"] },
+    "version": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "cached": { "type": "boolean" },
+    "truncated": { "type": "boolean" }
+  }
+}

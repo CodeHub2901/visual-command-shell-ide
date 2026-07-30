@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/language-completion.schema.json",
+  "title": "LanguageCompletionResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "incomplete"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "insertText", "detail", "documentation", "kind", "snippet"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "insertText": { "type": "string", "maxLength": 4096 },
+          "detail": { "type": ["string", "null"], "maxLength": 2000 },
+          "documentation": { "type": ["string", "null"], "maxLength": 20000 },
+          "kind": { "type": "integer", "minimum": 1, "maximum": 25 },
+          "snippet": { "type": "boolean" }
+        }
+      }
+    },
+    "incomplete": { "type": "boolean" }
+  }
+}

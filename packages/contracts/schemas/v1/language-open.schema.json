@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/language-open.schema.json",
+  "title": "LanguageOpenResult",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sessionId", "reason"],
+      "properties": {
+        "status": { "const": "opened" },
+        "sessionId": { "type": "string", "format": "uuid" },
+        "reason": { "type": "null" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sessionId", "reason"],
+      "properties": {
+        "status": { "const": "unavailable" },
+        "sessionId": { "type": "null" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    }
+  ]
+}
