@@ -124,8 +124,9 @@ jobs:
             --require-linux-packages
           sudo apt-get update
           sudo apt-get install --yes xvfb
-          deb="$(find release -maxdepth 1 -type f -name '*.deb' -print -quit)"
-          test -n "$deb"
+          deb_candidate="$(find release -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$deb_candidate"
+          deb="$(realpath "$deb_candidate")"
           sudo apt-get install --yes "$deb"
           package_name="$(dpkg-deb --field "$deb" Package)"
           executable="$(dpkg --listfiles "$package_name" | grep '/command-ide$' | head -n 1)"
@@ -201,8 +202,9 @@ jobs:
           node scripts/verify-release-artifacts.mjs \
             --release-dir release \
             --require-linux-packages
-          rpm_file="$(find release -maxdepth 1 -type f -name '*.rpm' -print -quit)"
-          test -n "$rpm_file"
+          rpm_candidate="$(find release -maxdepth 1 -type f -name '*.rpm' -print -quit)"
+          test -n "$rpm_candidate"
+          rpm_file="$(realpath "$rpm_candidate")"
           dnf install --assumeyes "$rpm_file"
           package_name="$(rpm --query --package --queryformat '%{NAME}' "$rpm_file")"
           executable="$(rpm --query --list "$package_name" | grep '/command-ide$' | head -n 1)"
