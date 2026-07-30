@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const desktopDirectory = path.join(repositoryRoot, "apps", "desktop");
+const workspaceManifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
 const manifest = JSON.parse(fs.readFileSync(path.join(desktopDirectory, "package.json"), "utf8"));
 const expectedIcon = "assets/packaging/icon.svg";
 const iconPath = path.join(desktopDirectory, expectedIcon);
@@ -17,6 +18,10 @@ const bashLanguageServerDirectory = path.join(
 assert(
   manifest.homepage === "https://github.com/CodeHub2901/visual-command-shell-ide",
   "Package homepage does not identify the canonical repository"
+);
+assert(
+  workspaceManifest.scripts?.["dist:linux"]?.includes("--publish never"),
+  "Linux distribution must not implicitly publish from CI"
 );
 assert(
   manifest.author?.name === "Command IDE contributors"
