@@ -14,9 +14,27 @@ const bashLanguageServerDirectory = path.join(
   "bash-language-server"
 );
 
+assert(
+  manifest.homepage === "https://github.com/CodeHub2901/visual-command-shell-ide",
+  "Package homepage does not identify the canonical repository"
+);
+assert(
+  manifest.author?.name === "Command IDE contributors"
+    && manifest.author?.email === "CodeHub2901@users.noreply.github.com",
+  "Package author metadata is incomplete"
+);
 assert(manifest.desktopName === "dev.commandide.desktop", "Linux desktopName is not stable");
 assert(manifest.build?.linux?.syncDesktopName === true, "Linux desktop filename is not synchronized");
 assert(manifest.build?.linux?.executableName === "command-ide", "Linux executable name is not package-safe");
+assert(manifest.build?.linux?.packageName === "command-ide", "Linux package name is not package-safe");
+assert(
+  manifest.build?.linux?.artifactName === "command-ide-${version}-${arch}.${ext}",
+  "Linux artifact name is not stable"
+);
+assert(
+  manifest.build?.linux?.maintainer === "Command IDE contributors <CodeHub2901@users.noreply.github.com>",
+  "Linux maintainer metadata is incomplete"
+);
 assert(manifest.build?.linux?.icon === expectedIcon, "Linux package does not use the source icon");
 assert(manifest.build?.win?.icon === expectedIcon, "Windows package does not use the source icon");
 assert(fs.existsSync(iconPath) && fs.statSync(iconPath).isFile(), "Packaging icon is missing");
