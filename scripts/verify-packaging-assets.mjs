@@ -26,7 +26,11 @@ assert(
 assert(manifest.desktopName === "dev.commandide.desktop", "Linux desktopName is not stable");
 assert(manifest.build?.linux?.syncDesktopName === true, "Linux desktop filename is not synchronized");
 assert(manifest.build?.linux?.executableName === "command-ide", "Linux executable name is not package-safe");
-assert(manifest.build?.linux?.packageName === "command-ide", "Linux package name is not package-safe");
+assert(
+  manifest.build?.deb?.packageName === "command-ide"
+    && manifest.build?.rpm?.packageName === "command-ide",
+  "Native Linux package names are not package-safe"
+);
 assert(
   manifest.build?.linux?.artifactName === "command-ide-${version}-${arch}.${ext}",
   "Linux artifact name is not stable"

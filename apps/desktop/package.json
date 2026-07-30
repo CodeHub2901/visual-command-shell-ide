@@ -76,13 +76,18 @@
       "executableName": "command-ide",
       "icon": "assets/packaging/icon.svg",
       "maintainer": "Command IDE contributors <CodeHub2901@users.noreply.github.com>",
-      "packageName": "command-ide",
       "syncDesktopName": true,
       "target": [
         "AppImage",
         "deb",
         "rpm"
       ]
+    },
+    "deb": {
+      "packageName": "command-ide"
+    },
+    "rpm": {
+      "packageName": "command-ide"
     },
     "win": {
       "icon": "assets/packaging/icon.svg"
