@@ -73,6 +73,11 @@
     "linux": {
       "artifactName": "command-ide-${version}-${arch}.${ext}",
       "category": "Development",
+      "desktop": {
+        "entry": {
+          "Name": "Command IDE"
+        }
+      },
       "executableName": "command-ide",
       "icon": "assets/packaging/icon.svg",
       "maintainer": "Command IDE contributors <CodeHub2901@users.noreply.github.com>",

@@ -20,8 +20,9 @@ assert(
   "Package homepage does not identify the canonical repository"
 );
 assert(
-  workspaceManifest.scripts?.["dist:linux"]?.includes("--publish never"),
-  "Linux distribution must not implicitly publish from CI"
+  workspaceManifest.scripts?.["dist:linux"]?.includes("--publish never")
+    && workspaceManifest.scripts?.["dist:linux"]?.includes("--config.productName=CommandIDE"),
+  "Linux distribution must use a package-safe product directory and must not implicitly publish from CI"
 );
 assert(
   manifest.author?.name === "Command IDE contributors"
@@ -30,6 +31,7 @@ assert(
 );
 assert(manifest.desktopName === "dev.commandide.desktop", "Linux desktopName is not stable");
 assert(manifest.build?.linux?.syncDesktopName === true, "Linux desktop filename is not synchronized");
+assert(manifest.build?.linux?.desktop?.entry?.Name === "Command IDE", "Linux desktop display name is not stable");
 assert(manifest.build?.linux?.executableName === "command-ide", "Linux executable name is not package-safe");
 assert(
   manifest.build?.deb?.packageName === "command-ide"
