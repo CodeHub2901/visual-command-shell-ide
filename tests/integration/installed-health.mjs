@@ -6,8 +6,9 @@ import { fileURLToPath } from "node:url";
 import { writeProbeResult } from "./probe-result.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const executable = process.env.CMD_IDE_INSTALLED_EXECUTABLE;
-assert.ok(executable, "CMD_IDE_INSTALLED_EXECUTABLE is required");
+const configuredExecutable = process.env.CMD_IDE_INSTALLED_EXECUTABLE;
+assert.ok(configuredExecutable, "CMD_IDE_INSTALLED_EXECUTABLE is required");
+const executable = path.resolve(configuredExecutable);
 assert.ok(fs.existsSync(executable), `Installed application does not exist: ${executable}`);
 
 if (!executable.endsWith(".AppImage")) {
