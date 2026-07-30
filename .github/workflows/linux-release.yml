@@ -61,6 +61,17 @@ jobs:
           test -u "$sandbox_helper"
       - run: pnpm verify
       - run: pnpm dist:linux
+      - name: Configure unpacked Chromium sandbox helper
+        shell: bash
+        run: |
+          sandbox_helper="$(realpath release/linux-unpacked/chrome-sandbox)"
+          sudo chown 0:0 "$sandbox_helper"
+          sudo chmod 4755 "$sandbox_helper"
+          printf 'Unpacked Chromium sandbox owner/mode: %s %s\n' \
+            "$(stat --format='%u:%g' "$sandbox_helper")" \
+            "$(stat --format='%a' "$sandbox_helper")"
+          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
+          test -u "$sandbox_helper"
       - name: Verify unpacked application
         run: pnpm test:packaged
       - name: Verify AppImage launch
