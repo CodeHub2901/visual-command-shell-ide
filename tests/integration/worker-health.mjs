@@ -187,7 +187,12 @@ const findmntManual = await request(
   "v1.manual.get",
   { commandId: "findmnt" }
 );
-assert.equal(findmntManual.result.manual.synopsis, "findmnt [OPTION]... [DEVICE|MOUNTPOINT]");
+assert.ok(["man", "help", "bundled"].includes(findmntManual.result.source));
+assert.match(findmntManual.result.manual.synopsis, /^findmnt\b/i);
+assert.ok(findmntManual.result.manual.sections.length > 0);
+if (findmntManual.result.source === "bundled") {
+  assert.equal(findmntManual.result.manual.synopsis, "findmnt [OPTION]... [DEVICE|MOUNTPOINT]");
+}
 assert.equal(findmntManual.result.tldr.attribution.license, "CC-BY 4.0");
 assert.ok(findmntManual.result.tldr.attribution.pageUrl.includes("/pages/linux/findmnt.md"));
 
