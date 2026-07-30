@@ -16,6 +16,7 @@ const bashLanguageServerDirectory = path.join(
 
 assert(manifest.desktopName === "dev.commandide.desktop", "Linux desktopName is not stable");
 assert(manifest.build?.linux?.syncDesktopName === true, "Linux desktop filename is not synchronized");
+assert(manifest.build?.linux?.executableName === "command-ide", "Linux executable name is not package-safe");
 assert(manifest.build?.linux?.icon === expectedIcon, "Linux package does not use the source icon");
 assert(manifest.build?.win?.icon === expectedIcon, "Windows package does not use the source icon");
 assert(fs.existsSync(iconPath) && fs.statSync(iconPath).isFile(), "Packaging icon is missing");

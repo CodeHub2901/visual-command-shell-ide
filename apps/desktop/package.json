@@ -68,6 +68,7 @@
     ],
     "linux": {
       "category": "Development",
+      "executableName": "command-ide",
       "icon": "assets/packaging/icon.svg",
       "syncDesktopName": true,
       "target": [
