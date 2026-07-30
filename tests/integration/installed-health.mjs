@@ -57,19 +57,20 @@ const exit = await new Promise((resolve, reject) => {
 
 const stderrText = Buffer.concat(stderr).toString("utf8");
 const stdoutText = Buffer.concat(stdout).toString("utf8");
+const applicationOutput = `${stdoutText}\n${stderrText}`;
 assert.equal(
   exit.code,
   0,
   `Installed smoke failed (signal=${exit.signal ?? "none"})\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`
 );
-assert.doesNotMatch(stderrText, /Application startup failed|worker-error|editor verification failed/i);
-assert.match(stderrText, /OpenAI write-only credential and curated-model workspace validated/i);
-assert.match(stderrText, /keyboard shortcuts and workspace focus validated/i);
-assert.match(stderrText, /collapsible terminal layout and session state validated/i);
-const canvasMeasurement = stderrText.match(
+assert.doesNotMatch(applicationOutput, /Application startup failed|worker-error|editor verification failed/i);
+assert.match(applicationOutput, /OpenAI write-only credential and curated-model workspace validated/i);
+assert.match(applicationOutput, /keyboard shortcuts and workspace focus validated/i);
+assert.match(applicationOutput, /collapsible terminal layout and session state validated/i);
+const canvasMeasurement = applicationOutput.match(
   /Interactive React Flow large-canvas: render (\d+(?:\.\d+)?) ms, zoom p95 (\d+(?:\.\d+)?) ms \(1,000 nodes\)\./i
 );
-assert.ok(canvasMeasurement, `Installed smoke did not report a large-canvas measurement\n${stderrText}`);
+assert.ok(canvasMeasurement, `Installed smoke did not report a large-canvas measurement\n${applicationOutput}`);
 writeProbeResult("CMD_IDE_CANVAS_RESULT_PATH", {
   schemaVersion: "1.0.0",
   probe: "interactive-canvas",

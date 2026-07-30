@@ -46,40 +46,41 @@ const exit = await new Promise((resolve, reject) => {
 
 const stderrText = Buffer.concat(stderr).toString("utf8");
 const stdoutText = Buffer.concat(stdout).toString("utf8");
+const applicationOutput = `${stdoutText}\n${stderrText}`;
 assert.equal(
   exit.code,
   0,
   `Electron smoke failed (signal=${exit.signal ?? "none"})\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`
 );
-assert.doesNotMatch(stderrText, /Application startup failed|worker-error/i);
-assert.match(stderrText, /offline catalog validated/i);
-assert.match(stderrText, /(man|help|bundled) manual validated/i);
-assert.match(stderrText, /tldr CC-BY 4\.0 attribution validated/i);
-assert.match(stderrText, /generated ls -al \./i);
+assert.doesNotMatch(applicationOutput, /Application startup failed|worker-error/i);
+assert.match(applicationOutput, /offline catalog validated/i);
+assert.match(applicationOutput, /(man|help|bundled) manual validated/i);
+assert.match(applicationOutput, /tldr CC-BY 4\.0 attribution validated/i);
+assert.match(applicationOutput, /generated ls -al \./i);
 assert.ok(
-  (stderrText.match(/generated ls -al \./gi) ?? []).length >= 2,
-  `Expected Guided generation and Compact synchronized regeneration\n${stderrText}`
+  (applicationOutput.match(/generated ls -al \./gi) ?? []).length >= 2,
+  `Expected Guided generation and Compact synchronized regeneration\n${applicationOutput}`
 );
-assert.match(stderrText, /parsed \d+ shell nodes/i);
-assert.match(stderrText, /low risk hash [a-f0-9]{64}/i);
-assert.match(stderrText, /copied \d+ command characters to clipboard/i);
-assert.match(stderrText, /exact generated command clipboard action validated/i);
-assert.match(stderrText, /semantic React Flow mutation validated/i);
-assert.match(stderrText, /bundled Bash Language Server session validated/i);
-assert.match(stderrText, /local xterm and redacted History workspace validated/i);
-assert.match(stderrText, /structured bookmark persistence validated/i);
-assert.match(stderrText, /ollama model boundary returned (available|unavailable|failed)/i);
-assert.match(stderrText, /proposal-only Ollama review workspace validated/i);
-assert.match(stderrText, /OpenAI write-only credential and curated-model workspace validated/i);
-assert.match(stderrText, /passive local tooling detection validated/i);
-assert.match(stderrText, /keyboard shortcuts and workspace focus validated/i);
-assert.match(stderrText, /collapsible terminal layout and session state validated/i);
-assert.match(stderrText, /React Flow and local Monaco editors validated/i);
+assert.match(applicationOutput, /parsed \d+ shell nodes/i);
+assert.match(applicationOutput, /low risk hash [a-f0-9]{64}/i);
+assert.match(applicationOutput, /copied \d+ command characters to clipboard/i);
+assert.match(applicationOutput, /exact generated command clipboard action validated/i);
+assert.match(applicationOutput, /semantic React Flow mutation validated/i);
+assert.match(applicationOutput, /bundled Bash Language Server session validated/i);
+assert.match(applicationOutput, /local xterm and redacted History workspace validated/i);
+assert.match(applicationOutput, /structured bookmark persistence validated/i);
+assert.match(applicationOutput, /ollama model boundary returned (available|unavailable|failed)/i);
+assert.match(applicationOutput, /proposal-only Ollama review workspace validated/i);
+assert.match(applicationOutput, /OpenAI write-only credential and curated-model workspace validated/i);
+assert.match(applicationOutput, /passive local tooling detection validated/i);
+assert.match(applicationOutput, /keyboard shortcuts and workspace focus validated/i);
+assert.match(applicationOutput, /collapsible terminal layout and session state validated/i);
+assert.match(applicationOutput, /React Flow and local Monaco editors validated/i);
 assert.match(
-  stderrText,
+  applicationOutput,
   /Interactive React Flow large-canvas: render \d+(?:\.\d+)? ms, zoom p95 \d+(?:\.\d+)? ms \(1,000 nodes\)/i
 );
-const canvasMeasurement = stderrText.match(
+const canvasMeasurement = applicationOutput.match(
   /Interactive React Flow large-canvas: render \d+(?:\.\d+)? ms, zoom p95 \d+(?:\.\d+)? ms \(1,000 nodes\)\./i
 );
 assert.ok(canvasMeasurement);
