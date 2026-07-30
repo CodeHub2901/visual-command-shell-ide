@@ -30,7 +30,7 @@ jobs:
         run: |
           electron_executable="$(
             cd apps/desktop
-            node -e "process.stdout.write(require('electron'))"
+            node -e "process.stdout.write(require('electron'))" | tail -n 1
           )"
           sandbox_helper="$(realpath "$(dirname "$electron_executable")/chrome-sandbox")"
           printf 'Chromium sandbox helper: %s\n' "$sandbox_helper"
