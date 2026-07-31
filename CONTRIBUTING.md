@@ -39,3 +39,7 @@ SPDX-License-Identifier: Apache-2.0
 Do not claim another person's copyright. The official repository's automated
 checks prevent removal of existing `Divyang S Mistry` attribution while
 allowing contributors to identify their own new work accurately.
+
+The DCO check applies to every non-merge commit created after the policy
+baseline. Merge commits created by GitHub are excluded because they combine
+already checked commits and do not represent a separate contribution.

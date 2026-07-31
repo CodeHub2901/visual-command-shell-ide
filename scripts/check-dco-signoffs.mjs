@@ -36,7 +36,12 @@ function isAncestor(repositoryRoot, ancestor, descendant) {
 }
 
 export function commitsRequiringSignoff(repositoryRoot, baseSha, headSha) {
-  const commits = git(repositoryRoot, ["rev-list", "--reverse", `${baseSha}..${headSha}`])
+  const commits = git(repositoryRoot, [
+    "rev-list",
+    "--no-merges",
+    "--reverse",
+    `${baseSha}..${headSha}`
+  ])
     .split(/\r?\n/u)
     .filter((commit) => commit !== "");
 
@@ -77,7 +82,7 @@ function main() {
   }
 
   process.stdout.write(
-    `DCO sign-offs verified for ${commits.length} commit(s) created after the policy baseline.\n`
+    `DCO sign-offs verified for ${commits.length} non-merge commit(s) created after the policy baseline.\n`
   );
 }
 
