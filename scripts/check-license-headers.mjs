@@ -7,7 +7,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SPDX_IDENTIFIER = "SPDX-License-Identifier: Apache-2.0";
-const SPDX_COPYRIGHT = "SPDX-FileCopyrightText: 2026 Divyang S Mistry";
+const DEFAULT_SPDX_COPYRIGHT = "SPDX-FileCopyrightText: 2026 Divyang S Mistry";
+const SPDX_COPYRIGHT_PREFIX = "SPDX-FileCopyrightText:";
 const SOURCE_EXTENSIONS = new Set([".css", ".java", ".js", ".mjs", ".ts", ".tsx"]);
 const SOURCE_ROOTS = new Set(["apps", "packages", "scripts", "tests"]);
 const EXCLUDED_SEGMENTS = new Set(["dist", "dist-electron", "node_modules", "release", "target"]);
@@ -22,7 +23,7 @@ export function isLicenseHeaderCandidate(relativePath) {
 
 export function hasApacheSpdxHeader(content) {
   const header = content.split(/\r?\n/u).slice(0, 8);
-  return header.some((line) => line.includes(SPDX_COPYRIGHT))
+  return header.some(hasCopyrightOwner)
     && header.some((line) => line.includes(SPDX_IDENTIFIER));
 }
 
@@ -31,10 +32,10 @@ export function addApacheSpdxHeader(relativePath, content) {
   const lineEnding = content.includes("\r\n") ? "\r\n" : "\n";
   const extension = path.posix.extname(relativePath.replaceAll("\\", "/"));
   const comment = (value) => extension === ".css" ? `/* ${value} */` : `// ${value}`;
-  const copyrightHeader = comment(SPDX_COPYRIGHT);
+  const copyrightHeader = comment(DEFAULT_SPDX_COPYRIGHT);
   const licenseHeader = comment(SPDX_IDENTIFIER);
   const hasCopyright = content.split(/\r?\n/u).slice(0, 8)
-    .some((line) => line.includes(SPDX_COPYRIGHT));
+    .some(hasCopyrightOwner);
   const hasLicense = content.split(/\r?\n/u).slice(0, 8)
     .some((line) => line.includes(SPDX_IDENTIFIER));
 
@@ -45,7 +46,7 @@ export function addApacheSpdxHeader(relativePath, content) {
   }
 
   if (hasCopyright && !hasLicense) {
-    const copyrightIndex = content.indexOf(SPDX_COPYRIGHT);
+    const copyrightIndex = content.indexOf(SPDX_COPYRIGHT_PREFIX);
     const lineEnd = content.indexOf("\n", copyrightIndex);
     const insertionPoint = lineEnd === -1 ? content.length : lineEnd + 1;
     return `${content.slice(0, insertionPoint)}${licenseHeader}${lineEnding}${content.slice(insertionPoint)}`;
@@ -61,6 +62,15 @@ export function addApacheSpdxHeader(relativePath, content) {
   }
 
   return `${header}${lineEnding}${lineEnding}${content}`;
+}
+
+function hasCopyrightOwner(line) {
+  const markerIndex = line.indexOf(SPDX_COPYRIGHT_PREFIX);
+  if (markerIndex === -1) return false;
+  const owner = line.slice(markerIndex + SPDX_COPYRIGHT_PREFIX.length)
+    .replace(/\*\/\s*$/u, "")
+    .trim();
+  return owner !== "";
 }
 
 export function inspectRepository(repositoryRoot, write) {
@@ -92,20 +102,22 @@ function main() {
   const result = inspectRepository(repositoryRoot, write);
   if (write) {
     process.stdout.write(
-      `Added Divyang S Mistry copyright and Apache-2.0 SPDX headers to ${result.missing.length} of ${result.candidateCount} original source files.\n`
+      `Added copyright and Apache-2.0 SPDX headers to ${result.missing.length} of ${result.candidateCount} original source files.\n`
     );
     return;
   }
   if (result.missing.length > 0) {
     for (const relativePath of result.missing) {
-      process.stderr.write(`${relativePath}: missing ${SPDX_COPYRIGHT} or ${SPDX_IDENTIFIER}\n`);
+      process.stderr.write(
+        `${relativePath}: missing ${SPDX_COPYRIGHT_PREFIX} <owner> or ${SPDX_IDENTIFIER}\n`
+      );
     }
     process.stderr.write(`License header check failed for ${result.missing.length} source file(s).\n`);
     process.exitCode = 1;
     return;
   }
   process.stdout.write(
-    `Divyang S Mistry copyright and Apache-2.0 SPDX headers verified for ${result.candidateCount} original source files.\n`
+    `Copyright and Apache-2.0 SPDX headers verified for ${result.candidateCount} original source files.\n`
   );
 }
 

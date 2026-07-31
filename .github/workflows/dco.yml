@@ -10,13 +10,16 @@ jobs:
   signoff:
     name: Verify contributor sign-offs
     runs-on: ubuntu-latest
+    env:
+      DCO_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: node scripts/test-dco-signoffs.mjs
+      - run: node scripts/test-protected-attribution.mjs
       - name: Verify pull-request commits
-        env:
-          DCO_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          DCO_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/check-dco-signoffs.mjs "$DCO_BASE_SHA" "$DCO_HEAD_SHA"
+      - name: Preserve original copyright attribution
+        run: node scripts/check-protected-attribution.mjs "$DCO_BASE_SHA" "$DCO_HEAD_SHA"

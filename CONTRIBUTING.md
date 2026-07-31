@@ -28,9 +28,14 @@ Signed-off-by: Contributor Name <email@example.com>
 
 Do not remove existing copyright, SPDX, license, attribution, or NOTICE
 information. New original Java, TypeScript, JavaScript, and CSS source files
-must carry both of these lines in the appropriate comment syntax:
+must carry both of these lines in the appropriate comment syntax, naming the
+actual copyright owner:
 
 ```text
-SPDX-FileCopyrightText: 2026 Divyang S Mistry
+SPDX-FileCopyrightText: <year> <copyright owner>
 SPDX-License-Identifier: Apache-2.0
 ```
+
+Do not claim another person's copyright. The official repository's automated
+checks prevent removal of existing `Divyang S Mistry` attribution while
+allowing contributors to identify their own new work accurately.
