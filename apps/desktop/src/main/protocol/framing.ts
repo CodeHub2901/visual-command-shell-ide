@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 const HEADER_SEPARATOR = Buffer.from("\r\n\r\n", "ascii");
 export const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +9,13 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const desktopDirectory = path.join(repositoryRoot, "apps", "desktop");
 const workspaceManifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
 const manifest = JSON.parse(fs.readFileSync(path.join(desktopDirectory, "package.json"), "utf8"));
+const rootPom = fs.readFileSync(path.join(repositoryRoot, "pom.xml"), "utf8");
+const viteConfig = fs.readFileSync(path.join(desktopDirectory, "vite.config.ts"), "utf8");
+const notice = fs.readFileSync(path.join(repositoryRoot, "NOTICE"), "utf8");
+const copyright = fs.readFileSync(path.join(repositoryRoot, "COPYRIGHT"), "utf8");
+const readme = fs.readFileSync(path.join(repositoryRoot, "README.md"), "utf8");
+const messages = fs.readFileSync(path.join(desktopDirectory, "src", "shared", "messages", "en.ts"), "utf8");
+const legalOwner = "Divyang S Mistry";
 const expectedIcon = "assets/packaging/icon.svg";
 const iconPath = path.join(desktopDirectory, expectedIcon);
 const expectedBashLanguageServerVersion = "5.6.0";
@@ -20,12 +30,40 @@ assert(
   "Package homepage does not identify the canonical repository"
 );
 assert(
+  workspaceManifest.license === "Apache-2.0" && manifest.license === "Apache-2.0",
+  "Workspace and desktop manifests must declare Apache-2.0"
+);
+assert(
+  rootPom.includes("<name>Apache License, Version 2.0</name>")
+    && rootPom.includes("https://www.apache.org/licenses/LICENSE-2.0.txt")
+    && rootPom.includes(`<name>${legalOwner}</name>`),
+  "Maven metadata must declare Apache License 2.0"
+);
+for (const [label, content] of [
+  ["COPYRIGHT", copyright],
+  ["NOTICE", notice],
+  ["README", readme],
+  ["legal UI messages", messages]
+]) {
+  assert(content.includes(`Copyright 2026 ${legalOwner}`), `${label} does not identify the legal copyright owner`);
+}
+assert(
+  fs.existsSync(path.join(repositoryRoot, "TRADEMARKS.md")),
+  "Project trademark policy is missing"
+);
+assert(
+  viteConfig.includes("__COMMAND_IDE_VERSION__")
+    && viteConfig.includes("__COMMAND_IDE_SOURCE_REPOSITORY__"),
+  "Renderer legal metadata must derive its version and source repository from the desktop manifest"
+);
+assert(
   workspaceManifest.scripts?.["dist:linux"]?.includes("--publish never")
     && workspaceManifest.scripts?.["dist:linux"]?.includes("--config.productName=CommandIDE"),
   "Linux distribution must use a package-safe product directory and must not implicitly publish from CI"
 );
 assert(
-  manifest.author?.name === "Command IDE contributors"
+  workspaceManifest.author?.name === "Divyang S Mistry"
+    && manifest.author?.name === "Divyang S Mistry"
     && manifest.author?.email === "CodeHub2901@users.noreply.github.com",
   "Package author metadata is incomplete"
 );
@@ -43,7 +81,7 @@ assert(
   "Linux artifact name is not stable"
 );
 assert(
-  manifest.build?.linux?.maintainer === "Command IDE contributors <CodeHub2901@users.noreply.github.com>",
+  manifest.build?.linux?.maintainer === "Divyang S Mistry <CodeHub2901@users.noreply.github.com>",
   "Linux maintainer metadata is incomplete"
 );
 assert(manifest.build?.linux?.icon === expectedIcon, "Linux package does not use the source icon");

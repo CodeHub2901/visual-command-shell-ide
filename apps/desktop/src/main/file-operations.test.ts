@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

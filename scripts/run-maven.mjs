@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

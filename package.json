@@ -4,6 +4,10 @@
   "private": true,
   "description": "Offline-first visual command and shell IDE",
   "license": "Apache-2.0",
+  "author": {
+    "name": "Divyang S Mistry",
+    "email": "CodeHub2901@users.noreply.github.com"
+  },
   "packageManager": "pnpm@11.9.0",
   "engines": {
     "node": ">=24 <25",
@@ -27,6 +31,10 @@
     "test:performance": "node tests/integration/worker-performance.mjs && pnpm test:pty-throughput && pnpm --filter @cmd-ide/desktop test:performance",
     "test:release-artifacts": "node scripts/test-release-artifacts.mjs",
     "test:packaging-assets": "node scripts/verify-packaging-assets.mjs",
+    "test:dco-policy": "node scripts/test-dco-signoffs.mjs",
+    "test:protected-attribution-policy": "node scripts/test-protected-attribution.mjs",
+    "test:license-headers": "node scripts/test-license-headers.mjs && node scripts/check-license-headers.mjs",
+    "test:security": "node scripts/test-secret-scan.mjs && node scripts/scan-secrets.mjs && node scripts/test-compare-osv-results.mjs && pnpm test:dco-policy && pnpm test:protected-attribution-policy && pnpm test:license-headers",
     "release:metadata:java": "node scripts/run-maven.mjs -pl apps/worker -Prelease-metadata -DskipTests verify",
     "release:metadata:node": "node scripts/generate-release-metadata.mjs",
     "release:metadata:verify": "node scripts/verify-release-metadata.mjs",
@@ -34,7 +42,7 @@
     "release:finalize": "node scripts/finalize-release.mjs",
     "release:verify": "node scripts/verify-release-artifacts.mjs",
     "typecheck": "pnpm build:contracts && pnpm --recursive --if-present typecheck",
-    "verify": "pnpm typecheck && pnpm test && pnpm test:packaging-assets && pnpm build && pnpm test:integration && pnpm test:runtime && pnpm test:performance && pnpm test:electron-smoke",
+    "verify": "pnpm test:security && pnpm typecheck && pnpm test && pnpm test:packaging-assets && pnpm build && pnpm test:integration && pnpm test:runtime && pnpm test:performance && pnpm test:electron-smoke",
     "dist:linux": "pnpm build && pnpm release:metadata && pnpm --filter @cmd-ide/desktop exec electron-builder --linux AppImage deb rpm --config.productName=CommandIDE --publish never && pnpm release:finalize --require-linux-packages && pnpm release:verify --require-linux-packages",
     "pack:dir": "pnpm build && pnpm release:metadata && pnpm --filter @cmd-ide/desktop exec electron-builder --dir",
     "start": "pnpm --filter @cmd-ide/desktop start"

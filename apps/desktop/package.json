@@ -4,7 +4,7 @@
   "private": true,
   "description": "Offline-first visual command and shell IDE",
   "author": {
-    "name": "Command IDE contributors",
+    "name": "Divyang S Mistry",
     "email": "CodeHub2901@users.noreply.github.com"
   },
   "homepage": "https://github.com/CodeHub2901/visual-command-shell-ide",
@@ -80,7 +80,7 @@
       },
       "executableName": "command-ide",
       "icon": "assets/packaging/icon.svg",
-      "maintainer": "Command IDE contributors <CodeHub2901@users.noreply.github.com>",
+      "maintainer": "Divyang S Mistry <CodeHub2901@users.noreply.github.com>",
       "syncDesktopName": true,
       "target": [
         "AppImage",

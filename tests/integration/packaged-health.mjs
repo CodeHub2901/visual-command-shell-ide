@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn, spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import fs from "node:fs";

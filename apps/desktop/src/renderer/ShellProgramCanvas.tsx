@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyNodeChanges,

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CatalogSearchResult,
@@ -1803,6 +1806,22 @@ function SettingsView() {
           ))}
         </div>
       )}
+      <section className="legal-panel" aria-labelledby="legal-panel-title">
+        <h3 id="legal-panel-title">{t("settings.legal.title")}</h3>
+        <p>{t("settings.legal.description")}</p>
+        <dl>
+          <dt>{t("settings.legal.version")}</dt>
+          <dd><code>{__COMMAND_IDE_VERSION__}</code></dd>
+          <dt>{t("settings.legal.copyrightLabel")}</dt>
+          <dd>{t("settings.legal.copyright")}</dd>
+          <dt>{t("settings.legal.licenseLabel")}</dt>
+          <dd>{t("settings.legal.license")}</dd>
+          <dt>{t("settings.legal.source")}</dt>
+          <dd><code>{__COMMAND_IDE_SOURCE_REPOSITORY__}</code></dd>
+        </dl>
+        <p>{t("settings.legal.resources")}</p>
+        <p>{t("settings.legal.trademark")}</p>
+      </section>
     </article>
   );
 }

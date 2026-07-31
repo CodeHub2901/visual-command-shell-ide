@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,7 +75,15 @@ for (const moduleName of requiredRuntimeModules) {
   assert(runtimeModules.includes(moduleName), `Bundled Java runtime is missing ${moduleName}`);
 }
 assert(readRequired("LICENSE.txt") === fs.readFileSync(path.join(repositoryRoot, "LICENSE"), "utf8"), "Project license copy differs from LICENSE");
+assert(
+  readRequired("COPYRIGHT.txt") === fs.readFileSync(path.join(repositoryRoot, "COPYRIGHT"), "utf8"),
+  "Project copyright copy differs from COPYRIGHT"
+);
 assert(readRequired("NOTICE.txt") === fs.readFileSync(path.join(repositoryRoot, "NOTICE"), "utf8"), "Project notice copy differs from NOTICE");
+assert(
+  readRequired("TRADEMARKS.txt") === fs.readFileSync(path.join(repositoryRoot, "TRADEMARKS.md"), "utf8"),
+  "Project trademark policy copy differs from TRADEMARKS.md"
+);
 
 process.stdout.write(
   `Verified ${bomFiles.length} CycloneDX 1.6 SBOMs, ${javaLicenseFiles.length} Java license files, `

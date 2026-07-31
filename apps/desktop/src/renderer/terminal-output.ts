@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 const ESC = "\u001b";
 const BEL = "\u0007";
 const C1_OSC = "\u009d";

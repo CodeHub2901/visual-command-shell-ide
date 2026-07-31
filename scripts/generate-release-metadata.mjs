@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -119,7 +122,9 @@ const combinedSbom = {
 fs.writeFileSync(combinedSbomPath, stableJson(combinedSbom), "utf8");
 fs.writeFileSync(noticesPath, renderNotices(), "utf8");
 fs.copyFileSync(path.join(repositoryRoot, "LICENSE"), path.join(outputDirectory, "LICENSE.txt"));
+fs.copyFileSync(path.join(repositoryRoot, "COPYRIGHT"), path.join(outputDirectory, "COPYRIGHT.txt"));
 fs.copyFileSync(path.join(repositoryRoot, "NOTICE"), path.join(outputDirectory, "NOTICE.txt"));
+fs.copyFileSync(path.join(repositoryRoot, "TRADEMARKS.md"), path.join(outputDirectory, "TRADEMARKS.txt"));
 fs.copyFileSync(electronRuntime.licensePath, path.join(outputDirectory, "ELECTRON-LICENSE.txt"));
 fs.copyFileSync(
   electronRuntime.chromiumLicensesPath,

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -8,6 +11,15 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const desktopRoot = path.join(repositoryRoot, "apps", "desktop");
 const desktopRequire = createRequire(path.join(desktopRoot, "package.json"));
 const electronExecutable = desktopRequire("electron");
+const bundledJavaExecutable = path.join(
+  repositoryRoot,
+  "apps",
+  "worker",
+  "target",
+  "runtime",
+  "bin",
+  process.platform === "win32" ? "java.exe" : "java"
+);
 
 const command = process.platform === "linux" ? "xvfb-run" : electronExecutable;
 const args = process.platform === "linux" ? ["-a", electronExecutable, "."] : ["."];
@@ -16,6 +28,7 @@ const child = spawn(command, args, {
   windowsHide: true,
   env: {
     ...process.env,
+    CMD_IDE_JAVA: bundledJavaExecutable,
     CMD_IDE_SMOKE_TEST: "1",
     CMD_IDE_DATA_DIR: path.join(repositoryRoot, "work", "electron-smoke-data"),
     ELECTRON_ENABLE_LOGGING: "1"

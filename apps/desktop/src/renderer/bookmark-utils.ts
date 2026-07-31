@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ProjectParameter, ShellProgram } from "@cmd-ide/contracts";
 
 const SENSITIVE_NAME = /(api_?key|access_?token|token|password|passwd|secret)/i;

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ShellCommandNode, ShellProgram } from "@cmd-ide/contracts";
 import { describe, expect, test } from "vitest";
 import { buildShellGraph } from "./shell-graph";
