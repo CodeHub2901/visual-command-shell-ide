@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/language-diagnostics.schema.json",
+  "title": "LanguageDiagnosticsEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sessionId", "version", "diagnostics"],
+  "properties": {
+    "sessionId": { "type": "string", "format": "uuid" },
+    "version": { "type": ["integer", "null"], "minimum": 1 },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["range", "severity", "code", "message", "source"],
+        "properties": {
+          "range": { "$ref": "#/$defs/range" },
+          "severity": { "enum": ["error", "warning", "information", "hint"] },
+          "code": { "type": ["string", "null"], "maxLength": 100 },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "source": { "type": ["string", "null"], "maxLength": 100 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "character"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "character": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["range", "severity", "code", "message", "source"],
+      "properties": {
+        "range": { "$ref": "#/$defs/range" },
+        "severity": { "enum": ["error", "warning", "information", "hint"] },
+        "code": { "type": ["string", "null"], "maxLength": 100 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "source": { "type": ["string", "null"], "maxLength": 100 }
+      }
+    }
+  }
+}

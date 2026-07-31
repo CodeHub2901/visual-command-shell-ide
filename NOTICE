@@ -1,0 +1,33 @@
+Visual Command & Shell IDE
+Copyright 2026 Divyang S Mistry
+
+This product includes software developed by third parties. Release artifacts
+include generated third-party notices and CycloneDX software bills of materials.
+
+The desktop user interface includes React Flow (`@xyflow/react`), Monaco Editor,
+the `@monaco-editor/react` integration package, and xterm.js (`@xterm/xterm` and
+`@xterm/addon-fit`). These components are distributed under the MIT License.
+Their pinned versions and complete license texts are included in the generated
+third-party notices for release builds.
+
+The desktop application bundles Bash Language Server, distributed under the
+MIT License, and runs it through Electron's embedded Node runtime. Its exact
+version, transitive dependency graph, and complete license texts are included
+in the generated third-party notices and CycloneDX SBOM.
+
+The Java worker includes JetBrains Pty4J, distributed under the Eclipse Public
+License 1.0, plus its transitive native components and notices. Release
+artifacts include the corresponding license and notice texts.
+
+The Java worker also includes the OpenAI Java SDK (Apache License 2.0), Java
+Native Access/JNA (Apache License 2.0 or LGPL 2.1+), Jackson (Apache License
+2.0), SQLite JDBC and its bundled SQLite components, OkHttp/Okio (Apache License
+2.0), Kotlin runtime components (Apache License 2.0), and SLF4J. Exact versions
+are pinned in the Maven dependency graph and expanded into generated release
+notices and the SBOM.
+
+Bundled community command examples are adapted from tldr-pages at the exact
+source revision recorded with each page. Copyright © 2014–present the
+tldr-pages team and contributors. The page content is licensed under the
+Creative Commons Attribution 4.0 International license (CC-BY 4.0):
+https://creativecommons.org/licenses/by/4.0/

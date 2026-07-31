@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.1.0",
+  "id": "fedora-44",
+  "distroFamily": "fedora",
+  "versions": ["44"],
+  "commands": [
+    {
+      "commandId": "dnf",
+      "status": "limited",
+      "note": "Fedora 44 uses DNF5. The catalog exposes only syntax shared with the curated DNF command model until DNF5-specific options are modeled."
+    },
+    {
+      "commandId": "apt",
+      "status": "unsupported",
+      "note": "APT is not the native package manager for Fedora 44."
+    },
+    {
+      "commandId": "lsblk",
+      "status": "supported",
+      "note": "Fedora 44 uses the util-linux 2.41 series, including the lsblk filter expression option introduced upstream in 2.40.",
+      "unavailableOptionIds": []
+    },
+    {
+      "commandId": "mount",
+      "status": "supported",
+      "note": "The curated common util-linux mount listing, read-only, type, and option syntax is covered for Fedora 44."
+    },
+    {
+      "commandId": "free",
+      "status": "supported",
+      "note": "The curated procps-ng free human-readable, byte, and refresh syntax is covered for Fedora 44."
+    },
+    {
+      "commandId": "ping",
+      "status": "supported",
+      "note": "The curated iputils ping count, interval, numeric, and IPv6 syntax is covered for Fedora 44."
+    },
+    {
+      "commandId": "git",
+      "status": "supported",
+      "note": "The catalog exposes stable Git global invocation syntax for Fedora 44; subcommand semantics remain separately reviewable."
+    }
+  ]
+}

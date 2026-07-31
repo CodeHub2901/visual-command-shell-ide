@@ -1,0 +1,18 @@
+packages:
+  - "apps/desktop"
+  - "packages/*"
+
+# Security floors for transitive dependencies whose current parents still request
+# vulnerable releases. brace-expansion's fix is available only in 5.0.8+.
+overrides:
+  brace-expansion: "5.0.9"
+  dompurify: "3.4.12"
+  "fast-uri@3": "3.1.4"
+  "minimatch@10.0.1": "10.2.6"
+  "tar@7": "7.5.22"
+
+allowBuilds:
+  app-builder-bin: true
+  electron: true
+  electron-winstaller: true
+  esbuild: true

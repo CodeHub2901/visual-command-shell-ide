@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/catalog-discovery.schema.json",
+  "title": "CatalogDiscoveryResult",
+  "type": "object",
+  "required": ["total", "truncated", "cached", "shadowedCount", "skippedUnsafeNames", "executables"],
+  "additionalProperties": false,
+  "properties": {
+    "total": { "type": "integer", "minimum": 0, "maximum": 20000 },
+    "truncated": { "type": "boolean" },
+    "cached": { "type": "boolean" },
+    "shadowedCount": { "type": "integer", "minimum": 0 },
+    "skippedUnsafeNames": { "type": "integer", "minimum": 0 },
+    "executables": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "#/$defs/executable" }
+    }
+  },
+  "$defs": {
+    "executable": {
+      "type": "object",
+      "required": ["executable", "path", "catalogCommandId", "category", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "executable": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "path": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "catalogCommandId": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "category": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+        "summary": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 }
+      }
+    }
+  }
+}

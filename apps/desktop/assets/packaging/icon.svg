@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">Command IDE application icon</title>
+  <desc id="description">A terminal chevron connected to a three-node visual command graph.</desc>
+  <defs>
+    <linearGradient id="background" x1="128" y1="96" x2="880" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e3a5f"/>
+      <stop offset="0.55" stop-color="#13243b"/>
+      <stop offset="1" stop-color="#0b1220"/>
+    </linearGradient>
+    <linearGradient id="prompt" x1="190" y1="330" x2="560" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#93c5fd"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+  </defs>
+  <rect x="48" y="48" width="928" height="928" rx="224" fill="url(#background)"/>
+  <rect x="82" y="82" width="860" height="860" rx="194" fill="none" stroke="#31547c" stroke-width="12"/>
+
+  <path d="M216 346 398 512 216 678" fill="none" stroke="url(#prompt)" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="416" y="640" width="220" height="70" rx="35" fill="#a7f3d0"/>
+
+  <path d="M604 314v116c0 42 34 76 76 76h66" fill="none" stroke="#5f82a8" stroke-width="28" stroke-linecap="round"/>
+  <path d="M604 506v116c0 42 34 76 76 76h66" fill="none" stroke="#5f82a8" stroke-width="28" stroke-linecap="round"/>
+  <circle cx="604" cy="278" r="62" fill="#172a43" stroke="#93c5fd" stroke-width="28"/>
+  <circle cx="790" cy="506" r="62" fill="#172a43" stroke="#a7f3d0" stroke-width="28"/>
+  <circle cx="790" cy="734" r="62" fill="#172a43" stroke="#67e8f9" stroke-width="28"/>
+</svg>

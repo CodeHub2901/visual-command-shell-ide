@@ -1,0 +1,261 @@
+{
+  "schemaVersion": "1.2.0",
+  "commands": [
+  {
+    "id": "ls",
+    "executable": "ls",
+    "versionProbeArguments": ["--version"],
+    "displayName": "ls",
+    "summary": "List directory contents",
+    "category": "Files",
+    "platforms": ["linux", "macos"],
+    "distroFamilies": ["ubuntu", "fedora", "other"],
+    "arguments": [
+      { "id": "files", "label": "FILE", "description": "Files or directories to list.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["read-only"],
+    "shortOptionPolicy": "combine-boolean",
+    "options": [
+      { "id": "all", "flags": ["-a", "--all"], "description": "Include entries whose names begin with a dot.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true },
+      { "id": "long", "flags": ["-l"], "description": "Use a detailed long listing format.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true },
+      { "id": "human-readable", "flags": ["-h", "--human-readable"], "description": "Print sizes in human-readable units.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true }
+    ],
+    "examples": ["ls -la", "ls -lh /var/log"],
+    "manual": {
+      "synopsis": "ls [OPTION]... [FILE]...",
+      "sections": [
+        { "heading": "Description", "body": "Lists information about files and directories. With no file argument, it lists the current directory." },
+        { "heading": "Safety", "body": "This command reads directory metadata and does not modify files." }
+      ]
+    }
+  },
+  {
+    "id": "grep",
+    "executable": "grep",
+    "versionProbeArguments": ["--version"],
+    "displayName": "grep",
+    "summary": "Search text for matching patterns",
+    "category": "Text",
+    "platforms": ["linux", "macos"],
+    "distroFamilies": ["ubuntu", "fedora", "other"],
+    "arguments": [
+      { "id": "pattern", "label": "PATTERN", "description": "Pattern to search for.", "required": true, "repeatable": false },
+      { "id": "files", "label": "FILE", "description": "Input files or directories.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["read-only"],
+    "shortOptionPolicy": "combine-boolean",
+    "options": [
+      { "id": "ignore-case", "flags": ["-i", "--ignore-case"], "description": "Ignore case distinctions in patterns and input.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true },
+      { "id": "recursive", "flags": ["-r", "--recursive"], "description": "Read files recursively under each directory.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true },
+      { "id": "line-number", "flags": ["-n", "--line-number"], "description": "Prefix output lines with their input line number.", "takesValue": false, "valueName": null, "repeatable": false, "combinable": true }
+    ],
+    "examples": ["grep -n \"TODO\" README.md", "grep -ri \"error\" logs/"],
+    "manual": {
+      "synopsis": "grep [OPTION]... PATTERN [FILE]...",
+      "sections": [
+        { "heading": "Description", "body": "Prints lines that match a supplied pattern." },
+        { "heading": "Exit status", "body": "Zero means a match was selected, one means no match, and values above one indicate an error." }
+      ]
+    }
+  },
+  {
+    "id": "find",
+    "executable": "find",
+    "versionProbeArguments": ["--version"],
+    "displayName": "find",
+    "summary": "Search a directory tree for files",
+    "category": "Search",
+    "platforms": ["linux", "macos"],
+    "distroFamilies": ["ubuntu", "fedora", "other"],
+    "arguments": [
+      { "id": "starting-points", "label": "STARTING-POINT", "description": "Directory trees to traverse.", "required": false, "repeatable": true },
+      { "id": "expression", "label": "EXPRESSION", "description": "Predicates and actions evaluated for each file.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["read-only"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "name", "flags": ["-name"], "description": "Match the base of a file name against a pattern.", "takesValue": true, "valueName": "PATTERN", "repeatable": true },
+      { "id": "type", "flags": ["-type"], "description": "Match a file by type, such as f for regular file or d for directory.", "takesValue": true, "valueName": "TYPE", "repeatable": true },
+      { "id": "maxdepth", "flags": ["-maxdepth"], "description": "Limit descent to a number of directory levels.", "takesValue": true, "valueName": "LEVELS", "repeatable": false }
+    ],
+    "examples": ["find . -name \"*.log\"", "find src -type f -maxdepth 3"],
+    "manual": {
+      "synopsis": "find [STARTING-POINT]... [EXPRESSION]",
+      "sections": [
+        { "heading": "Description", "body": "Walks directory trees and evaluates an expression for each encountered file." },
+        { "heading": "Quoting", "body": "Quote wildcard patterns so the shell does not expand them before find receives them." }
+      ]
+    }
+  },
+  {
+    "id": "tar",
+    "executable": "tar",
+    "versionProbeArguments": ["--version"],
+    "displayName": "tar",
+    "summary": "Create and extract archive files",
+    "category": "Files",
+    "platforms": ["linux", "macos", "windows"],
+    "distroFamilies": ["ubuntu", "fedora", "other"],
+    "arguments": [
+      { "id": "files", "label": "FILE", "description": "Files to archive or extract.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["filesystem-write"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "create", "flags": ["-c", "--create"], "description": "Create a new archive.", "takesValue": false, "valueName": null, "repeatable": false, "conflictsWith": ["extract"] },
+      { "id": "extract", "flags": ["-x", "--extract"], "description": "Extract files from an archive.", "takesValue": false, "valueName": null, "repeatable": false, "conflictsWith": ["create"] },
+      { "id": "file", "flags": ["-f", "--file"], "description": "Use the specified archive file.", "takesValue": true, "valueName": "ARCHIVE", "repeatable": false }
+    ],
+    "examples": ["tar -cf backup.tar documents/", "tar -xf backup.tar"],
+    "manual": {
+      "synopsis": "tar MODE [OPTION]... [FILE]...",
+      "sections": [
+        { "heading": "Description", "body": "Stores files in an archive or extracts files from one." },
+        { "heading": "Risk", "body": "Extraction writes files. Review the destination and archive contents before running." }
+      ]
+    }
+  },
+  {
+    "id": "ps",
+    "executable": "ps",
+    "versionProbeArguments": ["--version"],
+    "displayName": "ps",
+    "summary": "Inspect running processes",
+    "category": "Processes",
+    "platforms": ["linux", "macos"],
+    "distroFamilies": ["ubuntu", "fedora", "other"],
+    "arguments": [],
+    "riskTags": ["read-only"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "all-users", "flags": ["-e", "--everyone"], "description": "Select processes for all users.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "full-format", "flags": ["-f", "--full"], "description": "Display a full-format process listing.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "forest", "flags": ["--forest"], "description": "Show the process hierarchy as an ASCII tree.", "takesValue": false, "valueName": null, "repeatable": false }
+    ],
+    "examples": ["ps -ef", "ps -ef --forest"],
+    "manual": {
+      "synopsis": "ps [OPTION]...",
+      "sections": [
+        { "heading": "Description", "body": "Reports a snapshot of active processes. Selection and output options determine which processes and columns are shown." },
+        { "heading": "Compatibility", "body": "Option syntax differs between GNU/Linux and BSD-style ps implementations; review the target platform before reuse." }
+      ]
+    }
+  },
+  {
+    "id": "systemctl",
+    "executable": "systemctl",
+    "versionProbeArguments": ["--version"],
+    "displayName": "systemctl",
+    "summary": "Inspect and control systemd units",
+    "category": "System",
+    "platforms": ["linux"],
+    "distroFamilies": ["ubuntu", "fedora"],
+    "arguments": [
+      { "id": "command", "label": "COMMAND", "description": "Operation such as status, start, or stop.", "required": true, "repeatable": false },
+      { "id": "units", "label": "UNIT", "description": "Units affected by the operation.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["system-change", "privilege"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "user", "flags": ["--user"], "description": "Operate on the calling user's service manager.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "no-pager", "flags": ["--no-pager"], "description": "Write output directly instead of opening a pager.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "type", "flags": ["--type"], "description": "Restrict listed units to a unit type.", "takesValue": true, "valueName": "TYPE", "repeatable": true }
+    ],
+    "examples": ["systemctl status ssh.service", "systemctl --user list-units --type service"],
+    "manual": {
+      "synopsis": "systemctl [OPTIONS] COMMAND [UNIT]...",
+      "sections": [
+        { "heading": "Description", "body": "Queries or changes the state of the systemd system and service manager." },
+        { "heading": "Risk", "body": "Read-only commands such as status are low impact. Start, stop, enable, disable, and mask change system state and require separate review." }
+      ]
+    }
+  },
+  {
+    "id": "ip",
+    "executable": "ip",
+    "versionProbeArguments": ["-Version"],
+    "displayName": "ip",
+    "summary": "Inspect and configure Linux networking",
+    "category": "Networking",
+    "platforms": ["linux"],
+    "distroFamilies": ["ubuntu", "fedora"],
+    "arguments": [
+      { "id": "object", "label": "OBJECT", "description": "Networking object such as address, link, or route.", "required": true, "repeatable": false },
+      { "id": "command", "label": "COMMAND", "description": "Operation and its arguments.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["network", "system-change", "privilege"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "brief", "flags": ["-br", "--brief"], "description": "Print a concise tabular summary.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "json", "flags": ["-j", "--json"], "description": "Produce JSON output where supported.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "family", "flags": ["-family"], "description": "Select an address family such as inet or inet6.", "takesValue": true, "valueName": "FAMILY", "repeatable": false }
+    ],
+    "examples": ["ip -br address show", "ip route show"],
+    "manual": {
+      "synopsis": "ip [OPTIONS] OBJECT COMMAND",
+      "sections": [
+        { "heading": "Description", "body": "Displays and configures network links, addresses, routes, neighbors, and related Linux networking objects." },
+        { "heading": "Risk", "body": "Show operations are read-only. Add, delete, set, and replace operations can interrupt connectivity and require elevated review." }
+      ]
+    }
+  },
+  {
+    "id": "apt",
+    "executable": "apt",
+    "versionProbeArguments": ["--version"],
+    "displayName": "apt",
+    "summary": "Manage packages on Debian and Ubuntu systems",
+    "category": "Packages",
+    "platforms": ["linux"],
+    "distroFamilies": ["ubuntu"],
+    "arguments": [
+      { "id": "command", "label": "COMMAND", "description": "Package operation such as search, show, or install.", "required": true, "repeatable": false },
+      { "id": "packages", "label": "PACKAGE", "description": "Package names or patterns.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["network", "package-change", "privilege"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "assume-yes", "flags": ["-y", "--assume-yes"], "description": "Answer yes to prompts; use only after reviewing the entire transaction.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "simulate", "flags": ["-s", "--simulate"], "description": "Show the proposed package transaction without applying it.", "takesValue": false, "valueName": null, "repeatable": false },
+      { "id": "option", "flags": ["-o", "--option"], "description": "Set a configuration option for this invocation.", "takesValue": true, "valueName": "KEY=VALUE", "repeatable": true }
+    ],
+    "examples": ["apt search ripgrep", "apt -s install ripgrep"],
+    "manual": {
+      "synopsis": "apt [OPTIONS] COMMAND [PACKAGE]...",
+      "sections": [
+        { "heading": "Description", "body": "Provides an interactive command-line interface for searching, inspecting, installing, upgrading, and removing packages." },
+        { "heading": "Risk", "body": "Search and show are read-only. Install, remove, upgrade, and autoremove change the system; simulation is recommended before review." }
+      ]
+    }
+  },
+  {
+    "id": "dnf",
+    "executable": "dnf",
+    "versionProbeArguments": ["--version"],
+    "displayName": "dnf",
+    "summary": "Manage packages on Fedora systems",
+    "category": "Packages",
+    "platforms": ["linux"],
+    "distroFamilies": ["fedora"],
+    "arguments": [
+      { "id": "command", "label": "COMMAND", "description": "Package operation such as search, info, or install.", "required": true, "repeatable": false },
+      { "id": "arguments", "label": "ARGUMENT", "description": "Packages or command-specific arguments.", "required": false, "repeatable": true }
+    ],
+    "riskTags": ["network", "package-change", "privilege"],
+    "shortOptionPolicy": "never",
+    "options": [
+      { "id": "assume-yes", "flags": ["-y", "--assumeyes"], "description": "Answer yes to prompts; use only after reviewing the entire transaction.", "takesValue": false, "valueName": null, "repeatable": false, "conflictsWith": ["assume-no"] },
+      { "id": "assume-no", "flags": ["--assumeno"], "description": "Answer no to prompts, useful for safely inspecting a transaction.", "takesValue": false, "valueName": null, "repeatable": false, "conflictsWith": ["assume-yes"] },
+      { "id": "releasever", "flags": ["--releasever"], "description": "Override the release version used for repositories.", "takesValue": true, "valueName": "VERSION", "repeatable": false }
+    ],
+    "examples": ["dnf search ripgrep", "dnf --assumeno install ripgrep"],
+    "manual": {
+      "synopsis": "dnf [OPTIONS] COMMAND [ARGUMENTS]...",
+      "sections": [
+        { "heading": "Description", "body": "Searches, inspects, installs, upgrades, and removes RPM packages and manages configured repositories." },
+        { "heading": "Risk", "body": "Search and info are read-only. Install, remove, upgrade, and distro-sync change the system and require review." }
+      ]
+    }
+  }
+  ]
+}

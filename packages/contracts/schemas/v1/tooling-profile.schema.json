@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/tooling-profile.schema.json",
+  "title": "ToolingProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tools"],
+  "properties": {
+    "tools": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "displayName", "status", "source", "executablePath", "installGuidance"],
+        "properties": {
+          "id": { "enum": ["bash-language-server", "shellcheck", "shfmt"] },
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "status": { "enum": ["installed", "missing"] },
+          "source": { "enum": ["bundled", "system", "missing"] },
+          "executablePath": { "type": ["string", "null"], "maxLength": 32768 },
+          "installGuidance": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "status": { "const": "installed" } }, "required": ["status"] },
+            "then": {
+              "properties": {
+                "source": { "enum": ["bundled", "system"] },
+                "executablePath": { "type": "string", "minLength": 1, "maxLength": 32768 }
+              }
+            },
+            "else": {
+              "properties": {
+                "source": { "const": "missing" },
+                "executablePath": { "type": "null" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

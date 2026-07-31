@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "packs": [
+    "catalog/v1/commands.json",
+    "catalog/v1/packs/essentials.json",
+    "catalog/v1/packs/linux-foundations.json",
+    "catalog/v1/packs/catalog-expansion.json"
+  ],
+  "overlays": [
+    "catalog/v1/overlays/ubuntu-24.04.json",
+    "catalog/v1/overlays/ubuntu-26.04.json",
+    "catalog/v1/overlays/fedora-44.json"
+  ]
+}

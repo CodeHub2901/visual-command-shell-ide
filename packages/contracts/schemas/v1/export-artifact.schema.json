@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/export-artifact.schema.json",
+  "title": "ExportArtifact",
+  "type": "object",
+  "required": ["format", "suggestedFileName", "mediaType", "content", "syntaxValidation", "warnings"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "enum": ["project", "bash", "markdown"] },
+    "suggestedFileName": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "mediaType": { "enum": ["application/json", "text/x-shellscript", "text/markdown"] },
+    "content": { "type": "string", "minLength": 1, "maxLength": 2000000 },
+    "syntaxValidation": { "enum": ["passed", "not-applicable"] },
+    "warnings": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    }
+  }
+}

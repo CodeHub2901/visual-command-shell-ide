@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://command-ide.dev/schemas/v1/shell-program.schema.json",
+  "title": "ShellProgram",
+  "type": "object",
+  "required": ["schemaVersion", "dialect", "statements"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "1.4.0" },
+    "dialect": { "const": "bash" },
+    "statements": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+  },
+  "$defs": {
+    "option": {
+      "type": "object",
+      "required": ["optionId", "spelling", "value", "valueKind"],
+      "additionalProperties": false,
+      "properties": {
+        "optionId": { "type": "string", "minLength": 1 },
+        "spelling": { "type": "string", "minLength": 1 },
+        "value": { "type": ["string", "null"], "maxLength": 4096 },
+        "valueKind": { "enum": ["literal", "variable", null] }
+      },
+      "oneOf": [
+        { "properties": { "value": { "type": "null" }, "valueKind": { "type": "null" } } },
+        { "properties": { "value": { "type": "string" }, "valueKind": { "enum": ["literal", "variable"] } } }
+      ]
+    },
+    "argument": {
+      "type": "object",
+      "required": ["argumentId", "value", "valueKind"],
+      "additionalProperties": false,
+      "properties": {
+        "argumentId": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "maxLength": 4096 },
+        "valueKind": { "enum": ["literal", "variable"] }
+      },
+      "allOf": [{ "if": { "properties": { "valueKind": { "const": "variable" } } }, "then": { "properties": { "value": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } } }]
+    },
+    "command": {
+      "type": "object",
+      "required": ["type", "nodeId", "commandId", "options", "arguments"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "command" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "commandId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "options": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/option" } },
+        "arguments": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/argument" } }
+      }
+    },
+    "redirection": {
+      "type": "object",
+      "required": ["operator", "target", "targetKind"],
+      "additionalProperties": false,
+      "properties": {
+        "operator": { "enum": ["<", ">", ">>", "2>", "2>>", "&>"] },
+        "target": { "type": "string", "maxLength": 4096 },
+        "targetKind": { "enum": ["literal", "variable"] }
+      },
+      "allOf": [{ "if": { "properties": { "targetKind": { "const": "variable" } } }, "then": { "properties": { "target": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } } }]
+    },
+    "redirect": {
+      "type": "object",
+      "required": ["type", "nodeId", "subject", "redirections"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "redirect" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "subject": { "$ref": "#/$defs/command" },
+        "redirections": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/redirection" } }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": ["type", "nodeId", "mode", "statements"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "block" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "mode": { "enum": ["group", "subshell"] },
+        "statements": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "function": {
+      "type": "object",
+      "required": ["type", "nodeId", "name", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "function" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "body": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "stage": { "oneOf": [{ "$ref": "#/$defs/command" }, { "$ref": "#/$defs/redirect" }, { "$ref": "#/$defs/block" }] },
+    "pipeline": {
+      "type": "object",
+      "required": ["type", "nodeId", "operator", "stages"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "pipeline" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "operator": { "enum": ["|", "|&"] },
+        "stages": { "type": "array", "minItems": 2, "maxItems": 64, "items": { "$ref": "#/$defs/stage" } }
+      }
+    },
+    "booleanOperand": { "oneOf": [{ "$ref": "#/$defs/command" }, { "$ref": "#/$defs/redirect" }, { "$ref": "#/$defs/pipeline" }, { "$ref": "#/$defs/block" }] },
+    "booleanChain": {
+      "type": "object",
+      "required": ["type", "nodeId", "operator", "left", "right"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "boolean-chain" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "operator": { "enum": ["&&", "||"] },
+        "left": { "$ref": "#/$defs/booleanOperand" },
+        "right": { "$ref": "#/$defs/booleanOperand" }
+      }
+    },
+    "ifBranch": {
+      "type": "object",
+      "required": ["condition", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "condition": { "$ref": "#/$defs/booleanOperand" },
+        "body": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "if": {
+      "type": "object",
+      "required": ["type", "nodeId", "branches", "elseBody"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "if" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "branches": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "$ref": "#/$defs/ifBranch" } },
+        "elseBody": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+          ]
+        }
+      }
+    },
+    "loop": {
+      "type": "object",
+      "required": ["type", "nodeId", "mode", "condition", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "loop" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "mode": { "enum": ["while", "until"] },
+        "condition": { "$ref": "#/$defs/booleanOperand" },
+        "body": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "word": {
+      "type": "object",
+      "required": ["value", "valueKind"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "maxLength": 4096 },
+        "valueKind": { "enum": ["literal", "variable"] }
+      },
+      "allOf": [{ "if": { "properties": { "valueKind": { "const": "variable" } } }, "then": { "properties": { "value": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } } }]
+    },
+    "for": {
+      "type": "object",
+      "required": ["type", "nodeId", "variable", "values", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "for" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "variable": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "values": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/word" } },
+        "body": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "casePattern": {
+      "type": "object",
+      "required": ["value", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "kind": { "enum": ["literal", "glob"] }
+      },
+      "allOf": [{ "if": { "properties": { "kind": { "const": "glob" } } }, "then": { "properties": { "value": { "pattern": "^[A-Za-z0-9_@%+=:,./*?\\[\\]!-]+$" } } } }]
+    },
+    "caseArm": {
+      "type": "object",
+      "required": ["patterns", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "patterns": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/casePattern" } },
+        "body": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "case": {
+      "type": "object",
+      "required": ["type", "nodeId", "word", "arms"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "case" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "word": { "$ref": "#/$defs/word" },
+        "arms": { "type": "array", "minItems": 1, "maxItems": 128, "items": { "$ref": "#/$defs/caseArm" } }
+      }
+    },
+    "comment": {
+      "type": "object",
+      "required": ["type", "nodeId", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "comment" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "text": { "type": "string", "maxLength": 10000 }
+      }
+    },
+    "raw": {
+      "type": "object",
+      "required": ["type", "nodeId", "code", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "raw-code" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 200000 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "required": ["type", "nodeId", "name", "value", "valueKind", "exported"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "assignment" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "value": { "type": "string", "maxLength": 4096 },
+        "valueKind": { "enum": ["literal", "variable"] },
+        "exported": { "type": "boolean" }
+      },
+      "allOf": [{ "if": { "properties": { "valueKind": { "const": "variable" } } }, "then": { "properties": { "value": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } } }]
+    },
+    "sequenceItem": { "oneOf": [{ "$ref": "#/$defs/command" }, { "$ref": "#/$defs/redirect" }, { "$ref": "#/$defs/pipeline" }, { "$ref": "#/$defs/booleanChain" }, { "$ref": "#/$defs/assignment" }, { "$ref": "#/$defs/block" }, { "$ref": "#/$defs/function" }, { "$ref": "#/$defs/if" }, { "$ref": "#/$defs/loop" }, { "$ref": "#/$defs/for" }, { "$ref": "#/$defs/case" }, { "$ref": "#/$defs/comment" }, { "$ref": "#/$defs/raw" }] },
+    "sequence": {
+      "type": "object",
+      "required": ["type", "nodeId", "separator", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "sequence" },
+        "nodeId": { "$ref": "#/$defs/nodeId" },
+        "separator": { "enum": [";", "newline"] },
+        "items": { "type": "array", "minItems": 1, "maxItems": 1000, "items": { "$ref": "#/$defs/sequenceItem" } }
+      }
+    },
+    "nodeId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "node": { "oneOf": [{ "$ref": "#/$defs/command" }, { "$ref": "#/$defs/redirect" }, { "$ref": "#/$defs/pipeline" }, { "$ref": "#/$defs/booleanChain" }, { "$ref": "#/$defs/sequence" }, { "$ref": "#/$defs/assignment" }, { "$ref": "#/$defs/block" }, { "$ref": "#/$defs/function" }, { "$ref": "#/$defs/if" }, { "$ref": "#/$defs/loop" }, { "$ref": "#/$defs/for" }, { "$ref": "#/$defs/case" }, { "$ref": "#/$defs/comment" }, { "$ref": "#/$defs/raw" }] }
+  }
+}
