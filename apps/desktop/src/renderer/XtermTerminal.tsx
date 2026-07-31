@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import { Terminal } from "@xterm/xterm";

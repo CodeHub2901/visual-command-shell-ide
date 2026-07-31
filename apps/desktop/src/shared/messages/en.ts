@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 export const englishMessages = {
   "app.name": "Command IDE",
   "app.skipToWorkspace": "Skip to active workspace",
@@ -255,6 +258,16 @@ export const englishMessages = {
   "settings.guidance.optionalSystem": "Detected on PATH. Command IDE runs it only after an explicit editor action.",
   "settings.guidance.optionalMissing": "Optional. Install it from your operating system's trusted package source, then refresh detection.",
   "settings.inspectingPath": "Inspecting executable names on PATH…",
+  "settings.legal.title": "About and open-source license",
+  "settings.legal.description": "Command IDE is open-source software distributed under the Apache License 2.0.",
+  "settings.legal.version": "Application version",
+  "settings.legal.copyrightLabel": "Copyright",
+  "settings.legal.copyright": "Copyright 2026 Divyang S Mistry",
+  "settings.legal.licenseLabel": "Project license",
+  "settings.legal.license": "Apache License 2.0",
+  "settings.legal.source": "Source repository",
+  "settings.legal.resources": "The complete project license, copyright and NOTICE files, trademark policy, third-party license texts, and CycloneDX SBOMs are bundled under the application resources/metadata directory.",
+  "settings.legal.trademark": "The Apache License 2.0 licenses the software, not project names, logos, or other trademarks.",
   "welcome.eyebrow": "Offline command intelligence",
   "welcome.loadingCatalog": "Loading catalog",
   "welcome.chooseCommand": "Choose a command",

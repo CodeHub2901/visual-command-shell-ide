@@ -1,6 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import type { AiConnectionResult, AiEndpointParams, AiModelParams, AiModelsResult, AiProposalResult, AiRequest, BookmarkListResult, BookmarkSaveParams, CatalogDiscoveryResult, CatalogProbeVersionResult, CatalogSearchResult, ClipboardCopyResult, CredentialStatus, ExecutionEvent, ExecutionStartResult, ExecutionStartUiParams, ExportCreateParams, FileExportResult, HealthCheckResult, HistoryListResult, LanguageCompletionResult, LanguageDiagnosticsEvent, LanguageHoverResult, LanguageOpenResult, LanguageReferencesResult, LanguageSymbolsResult, ManualGetResult, ProjectFileImportResult, ProjectGetResult, ProjectListResult, RiskAssessment, ScriptProject, ShellCheckResult, ShellGenerateResult, ShellParseResult, ShellProgram, ShfmtResult, StructuredBookmark, SystemProfile, ToolingProfile, WorkingDirectoryResult } from "@cmd-ide/contracts";
 
 declare global {
+  const __COMMAND_IDE_VERSION__: string;
+  const __COMMAND_IDE_SOURCE_REPOSITORY__: string;
+
   interface Window {
     commandIde: Readonly<{
       health: Readonly<{

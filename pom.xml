@@ -13,6 +13,21 @@
   <description>Offline-first visual command and shell IDE</description>
   <url>https://commandide.dev</url>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Divyang S Mistry</name>
+      <url>https://github.com/CodeHub2901</url>
+    </developer>
+  </developers>
+
   <modules>
     <module>apps/worker</module>
   </modules>

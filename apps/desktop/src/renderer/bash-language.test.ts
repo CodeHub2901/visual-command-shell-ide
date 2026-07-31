@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, test } from "vitest";
 import type { CommandSpec } from "@cmd-ide/contracts";
 import { completionCandidates, hoverDetails } from "./bash-language";

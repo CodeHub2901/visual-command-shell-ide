@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Divyang S Mistry
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ProjectLayout, ShellCommandNode, ShellNode, ShellProgram } from "@cmd-ide/contracts";
 import type { Translator } from "./i18n";
 
