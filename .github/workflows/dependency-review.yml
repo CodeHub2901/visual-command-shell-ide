@@ -24,6 +24,11 @@ jobs:
     permissions:
       actions: read
       contents: read
+      # The pinned reusable workflow declares this permission even when
+      # upload-sarif is disabled. Granting it lets GitHub start the workflow;
+      # the disabled upload keeps this private-repository check independent
+      # of GitHub Advanced Security.
+      security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
     with:
       fail-on-vuln: true
