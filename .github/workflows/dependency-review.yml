@@ -38,6 +38,7 @@ jobs:
           scan-args: |-
             --format=json
             --output-file=old-results.json
+            --allow-no-lockfiles
             -r
             ./
       - name: Check out pull request head
@@ -49,6 +50,7 @@ jobs:
           scan-args: |-
             --format=json
             --output-file=new-results.json
+            --allow-no-lockfiles
             -r
             ./
       - name: Reject newly introduced vulnerabilities
