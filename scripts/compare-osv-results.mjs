@@ -10,7 +10,10 @@ export function vulnerabilityKeys(report) {
     report !== null
     && typeof report === "object"
     && !Array.isArray(report)
-    && Object.keys(report).length === 0
+    && (
+      Object.keys(report).length === 0
+      || (Object.keys(report).length === 1 && report.results === null)
+    )
   ) {
     return new Set();
   }
