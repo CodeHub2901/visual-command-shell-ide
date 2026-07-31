@@ -6,6 +6,14 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 export function vulnerabilityKeys(report) {
+  if (
+    report !== null
+    && typeof report === "object"
+    && !Array.isArray(report)
+    && Object.keys(report).length === 0
+  ) {
+    return new Set();
+  }
   if (!Array.isArray(report?.results)) {
     throw new Error("OSV report does not contain a results array");
   }
