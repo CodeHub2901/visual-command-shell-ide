@@ -9,10 +9,22 @@ permissions:
 jobs:
   dependency-review:
     name: Reject newly introduced high-risk dependencies
+    if: github.event.repository.private == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@40c09b7dc99638e5ddb0bfd91c1673effc064d8a # v4.8.1
         with:
           fail-on-severity: high
           fail-on-scopes: runtime, development
+
+  private-osv-review:
+    name: Reject newly introduced vulnerabilities (private repository)
+    if: github.event.repository.private
+    permissions:
+      actions: read
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+    with:
+      fail-on-vuln: true
+      upload-sarif: false
