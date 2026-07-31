@@ -34,7 +34,7 @@
     "test:dco-policy": "node scripts/test-dco-signoffs.mjs",
     "test:protected-attribution-policy": "node scripts/test-protected-attribution.mjs",
     "test:license-headers": "node scripts/test-license-headers.mjs && node scripts/check-license-headers.mjs",
-    "test:security": "node scripts/test-secret-scan.mjs && node scripts/scan-secrets.mjs && pnpm test:dco-policy && pnpm test:protected-attribution-policy && pnpm test:license-headers",
+    "test:security": "node scripts/test-secret-scan.mjs && node scripts/scan-secrets.mjs && node scripts/test-compare-osv-results.mjs && pnpm test:dco-policy && pnpm test:protected-attribution-policy && pnpm test:license-headers",
     "release:metadata:java": "node scripts/run-maven.mjs -pl apps/worker -Prelease-metadata -DskipTests verify",
     "release:metadata:node": "node scripts/generate-release-metadata.mjs",
     "release:metadata:verify": "node scripts/verify-release-metadata.mjs",
