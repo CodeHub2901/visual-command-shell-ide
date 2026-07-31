@@ -29,6 +29,13 @@ const introduced = report([
 assert.equal(vulnerabilityKeys(baseline).size, 1);
 assert.equal(vulnerabilityKeys({}).size, 0);
 assert.equal(vulnerabilityKeys({ results: null }).size, 0);
+assert.equal(
+  vulnerabilityKeys({
+    results: null,
+    experimental_config: { licenses: { summary: false, allowlist: null } }
+  }).size,
+  0
+);
 assert.deepEqual(newlyIntroducedVulnerabilities(baseline, unchanged), []);
 assert.deepEqual(
   newlyIntroducedVulnerabilities(baseline, introduced),
