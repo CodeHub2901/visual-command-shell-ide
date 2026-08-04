@@ -12,7 +12,7 @@ public final class CommandIdeWorker {
 
     public static void main(String[] args) {
         Thread.currentThread().setName("command-ide-worker-main");
-        System.err.println("Command IDE Java worker 0.1.0 starting");
+        System.err.println("Command IDE Java worker 0.1.0-beta.1 starting");
 
         try {
             Path dataDirectory = resolveDataDirectory();

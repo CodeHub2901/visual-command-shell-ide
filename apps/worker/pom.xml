@@ -7,7 +7,7 @@
   <parent>
     <groupId>dev.commandide</groupId>
     <artifactId>visual-command-shell-ide</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.0-beta.1</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 

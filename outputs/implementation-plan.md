@@ -388,9 +388,9 @@ Current implementation checkpoint (2026-07-31):
   fallbacks, and Electron native dialogs. Locale-neutral workspace IDs,
   fallback, interpolation, plural, date/number formatting, and inline-copy
   regression guards make additional locales an additive catalog task.
-- Complete: native workflow run 30582588516 passed the Ubuntu 24.04, Ubuntu
-  26.04, and Fedora 44 matrix at revision
-  `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`.
+- Complete: native workflow run 30940966048 passed the Ubuntu 24.04, Ubuntu
+  26.04, and Fedora 44 matrix for the verified `develop` baseline
+  `faed26d7541163b0928e6b09ab4d4e6bc0747757`.
 - Complete: deterministic secret-pattern scanning is part of `pnpm verify`;
   pull requests reject newly introduced high/critical vulnerable runtime or
   development dependencies; dependency inventories, license aggregation, and
@@ -433,7 +433,7 @@ Current implementation checkpoint (2026-07-31):
 - Complete: an original repository-native SVG application mark, deterministic
   packaging-asset policy checks, and synchronized Linux desktop-name/WM_CLASS
   metadata. The packaged Windows executable confirms the generated icon path.
-- Complete: native run 30582588516 built and verified the three package formats,
+- Complete: native run 30940966048 built and verified the three package formats,
   launched the AppImage, installed/launched/exercised/uninstalled deb candidates
   on Ubuntu 24.04/26.04, and performed the equivalent rpm lifecycle in a clean
   Fedora 44 container. All strict records passed aggregate revision verification.

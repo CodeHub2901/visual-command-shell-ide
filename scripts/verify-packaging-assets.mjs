@@ -9,16 +9,25 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const desktopDirectory = path.join(repositoryRoot, "apps", "desktop");
 const workspaceManifest = JSON.parse(fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
 const manifest = JSON.parse(fs.readFileSync(path.join(desktopDirectory, "package.json"), "utf8"));
+const contractsManifest = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, "packages", "contracts", "package.json"), "utf8")
+);
 const rootPom = fs.readFileSync(path.join(repositoryRoot, "pom.xml"), "utf8");
+const workerPom = fs.readFileSync(path.join(repositoryRoot, "apps", "worker", "pom.xml"), "utf8");
 const viteConfig = fs.readFileSync(path.join(desktopDirectory, "vite.config.ts"), "utf8");
 const notice = fs.readFileSync(path.join(repositoryRoot, "NOTICE"), "utf8");
 const copyright = fs.readFileSync(path.join(repositoryRoot, "COPYRIGHT"), "utf8");
 const readme = fs.readFileSync(path.join(repositoryRoot, "README.md"), "utf8");
 const messages = fs.readFileSync(path.join(desktopDirectory, "src", "shared", "messages", "en.ts"), "utf8");
+const betaReleaseNotes = fs.readFileSync(
+  path.join(repositoryRoot, "docs", "release", "0.1.0-beta.md"),
+  "utf8"
+);
 const legalOwner = "Divyang S Mistry";
 const expectedIcon = "assets/packaging/icon.svg";
 const iconPath = path.join(desktopDirectory, expectedIcon);
 const expectedBashLanguageServerVersion = "5.6.0";
+const expectedReleaseVersion = "0.1.0-beta.1";
 const bashLanguageServerDirectory = path.join(
   desktopDirectory,
   "node_modules",
@@ -29,6 +38,38 @@ assert(
   manifest.homepage === "https://github.com/CodeHub2901/visual-command-shell-ide",
   "Package homepage does not identify the canonical repository"
 );
+assert(
+  workspaceManifest.version === expectedReleaseVersion
+    && manifest.version === expectedReleaseVersion
+    && contractsManifest.version === expectedReleaseVersion
+    && rootPom.includes(`<version>${expectedReleaseVersion}</version>`)
+    && workerPom.includes(`<version>${expectedReleaseVersion}</version>`),
+  "Node and Maven release versions are not synchronized"
+);
+assert(
+  betaReleaseNotes.startsWith(`# Command IDE ${expectedReleaseVersion} release notes`),
+  "Beta release notes do not identify the packaged version"
+);
+for (const screenshot of [
+  "catalog-wide.png",
+  "visual-builder.png",
+  "script-editor.png",
+  "manual-compact-150pct.png",
+  "settings-minimum-200pct.png"
+]) {
+  const screenshotPath = path.join(
+    repositoryRoot,
+    "docs",
+    "release",
+    "images",
+    expectedReleaseVersion,
+    screenshot
+  );
+  assert(
+    fs.existsSync(screenshotPath) && fs.statSync(screenshotPath).size > 100_000,
+    `Verified release screenshot is missing or unexpectedly small: ${screenshot}`
+  );
+}
 assert(
   workspaceManifest.license === "Apache-2.0" && manifest.license === "Apache-2.0",
   "Workspace and desktop manifests must declare Apache-2.0"

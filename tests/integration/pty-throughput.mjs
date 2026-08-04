@@ -26,7 +26,7 @@ const defaultRuntimeJava = path.join(
 const javaExecutable = nonEmptyEnvironment("CMD_IDE_JAVA")
   ?? (fs.existsSync(defaultRuntimeJava) ? defaultRuntimeJava : "java");
 const workerJar = nonEmptyEnvironment("CMD_IDE_WORKER_JAR")
-  ?? path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-all.jar");
+  ?? path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-beta.1-all.jar");
 const dataDirectory = nonEmptyEnvironment("CMD_IDE_DATA_DIR")
   ?? path.join(repositoryRoot, "work", "pty-throughput-data");
 

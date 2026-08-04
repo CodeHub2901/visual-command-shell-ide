@@ -254,11 +254,30 @@ describe("protocol contracts", () => {
     expect(() =>
       HealthCheckResultSchema.parse({
         protocolVersion: "2.0",
-        workerVersion: "0.1.0",
+        workerVersion: "0.1.0-beta.1",
         javaVersion: "21",
         pid: 42
       })
     ).toThrow();
+  });
+
+  it("accepts bounded stable and prerelease worker versions", () => {
+    for (const workerVersion of ["0.1.0", "0.1.0-beta.1", "1.2.3-rc.2+build.7"]) {
+      expect(HealthCheckResultSchema.parse({
+        protocolVersion: "1.0",
+        workerVersion,
+        javaVersion: "21",
+        pid: 42
+      }).workerVersion).toBe(workerVersion);
+    }
+    for (const workerVersion of ["v0.1.0", "0.1", "01.0.0", "0.1.0 beta"]) {
+      expect(() => HealthCheckResultSchema.parse({
+        protocolVersion: "1.0",
+        workerVersion,
+        javaVersion: "21",
+        pid: 42
+      })).toThrow();
+    }
   });
 
   it("validates cancellation request identifiers", () => {

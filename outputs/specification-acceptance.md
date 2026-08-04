@@ -11,7 +11,7 @@ v1 completion gate.
 
 | Spec lines | Requirement | Status | Repository evidence |
 | --- | --- | --- | --- |
-| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | Accepted | Native workflow [run 30582588516](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30582588516) passed at revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`. It built AppImage/deb/rpm candidates, exercised Ubuntu 24.04 and 26.04 hosted VMs and a clean Fedora 44 container, and published the verified revision-bound target records. |
+| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | Accepted | Native workflow [run 30940966048](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30940966048) passed for the verified `develop` baseline `faed26d7541163b0928e6b09ab4d4e6bc0747757`. It built AppImage/deb/rpm candidates, exercised Ubuntu 24.04 and 26.04 hosted VMs and a clean Fedora 44 container, and published the verified revision-bound target records. |
 | 9-14 | Electron/React/TypeScript/Vite, Java 21, jlink, private framed stdio JSON-RPC, Apache-2.0, Guided and Compact modes | Implemented | Root/desktop/worker build files, Maven wrapper, `docs/adr/0001-process-boundaries.md`, `docs/adr/0002-framed-json-rpc.md`, `LICENSE`, Electron smoke. No Gradle or Spring Boot is present. |
 | 20-22 | Navigation/sidebar/workspaces, React Flow, Monaco, xterm, collapsible terminal | Implemented | `apps/desktop/src/renderer/App.tsx`, `ShellProgramCanvas.tsx`, `MonacoBashEditor.tsx`, `XtermTerminal.tsx`, terminal layout tests and Electron smoke. |
 | 23 | Sandboxed renderer, isolation, CSP, blocked navigation, narrow preload | Implemented | `apps/desktop/src/main/security.ts`, `security.test.ts`, renderer CSP, main navigation handlers, validated preload schemas. |
@@ -29,7 +29,7 @@ v1 completion gate.
 | 73-76 | Versioned shared contracts, validation in Electron and Java, safe logs, SQLite without credentials/terminal secrets | Implemented | `v1.*` methods and schemas, strict preload/main/worker parsing, framed stdout with stderr diagnostics, SQLite schema/secret tests. |
 | 83-84 | Checksums, SBOM, notices, release/reproducibility docs, open-source governance/templates | Implemented | Release metadata/finalization scripts, CycloneDX and license aggregation, `NOTICE`, README/architecture/security/governance/contribution documents and GitHub templates. The deterministic repository-file secret scan is part of `pnpm verify`, and pull requests reject newly introduced high/critical vulnerable dependencies; publication remains an explicit maintainer action. |
 | 89-91 | Unit/property coverage for compaction, quoting, conflicts, parameters, risk, overlays, export, redaction | Implemented | Contract, Vitest, Maven unit/property suites and the full `pnpm verify` gate. |
-| 92 | Catalog/manual/execution checks on all three Linux targets | Accepted | Ubuntu 24.04/26.04 and Fedora 44 jobs emitted structured target records after install, launch, PTY, uninstall, and data-preservation checks. The aggregate verifier accepted the complete set for revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`. |
+| 92 | Catalog/manual/execution checks on all three Linux targets | Accepted | Ubuntu 24.04/26.04 and Fedora 44 jobs emitted structured target records after install, launch, PTY, uninstall, and data-preservation checks. The aggregate verifier accepted the complete set for the verified `develop` baseline `faed26d7541163b0928e6b09ab4d4e6bc0747757`. |
 | 93 | PTY streaming, resize, stdin, cancellation, nonzero exit, tree cleanup, sudo non-retention | Accepted | Service tests cover lifecycle semantics. Native Linux workflow probes streamed 4 MiB end-to-end through Pty4J and framed JSON-RPC from the installed deb/rpm runtimes on all three target environments. |
 | 94-95 | Mocked AI failure matrix and no autonomous execution | Implemented | Ollama/OpenAI/provider/service/RPC tests and proposal schema invariant. |
 | 96 | Electron E2E across primary workflows, accessibility, keyboard, isolation | Implemented with composite coverage | Electron smoke covers both modes, manuals, semantic visual editing, bookmarks, language tools, clipboard, terminal/history, AI, accessibility focus/shortcuts, and isolation; worker integration covers project reopen/export generation. Native file-dialog/installer behavior is covered by the Linux release workflow. |
@@ -47,10 +47,7 @@ release credentials. If the release approver does not accept the clean Fedora
 Linux artifact signing is a publication-policy decision; macOS notarization and
 Windows code signing remain explicit later-release requirements.
 
-The responsive-polish candidate currently exists as an uncommitted Git Flow
-feature branch. It has complete local and isolated Ubuntu 24.04 verification,
-including real AppImage/deb/rpm generation and an installed-deb lifecycle, but
-the earlier accepted workflow revision does not prove this new candidate.
-Acceptance must be renewed by the repository workflow for the eventual commit;
-until then, this matrix is implementation evidence rather than publication
-approval for the responsive candidate.
+The responsive Linux polish is merged into `develop`, and its exact merge
+revision passed the native acceptance matrix. The versioned release branch and
+tag must independently pass the same revision-bound workflow before public
+beta publication.
