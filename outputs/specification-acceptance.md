@@ -1,17 +1,17 @@
 # Specification acceptance matrix
 
-Audit date: 2026-07-30
+Audit date: 2026-08-04
 
 This matrix maps the supplied 106-line product specification to repository
-evidence. “Implemented” means the capability exists and has local automated
-coverage. “External acceptance” means the implementation and workflow exist,
-but a recorded run on the named native target is still required. Later
+evidence. “Implemented” means the capability exists and has automated
+coverage. “Accepted” additionally means the revision-bound native release
+matrix completed successfully for the recorded source revision. Later
 macOS/Zsh and Windows/PowerShell releases are intentionally outside the Linux
 v1 completion gate.
 
 | Spec lines | Requirement | Status | Repository evidence |
 | --- | --- | --- | --- |
-| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | External acceptance | `apps/desktop/package.json`, `.github/workflows/linux-release.yml`, `tests/integration/installed-health.mjs`, and the strict revision-bound native acceptance record verifier; recorded native workflow results and Fedora clean-VM evidence remain required. |
+| 5, 80-82, 97, 105 | Ubuntu 24.04/26.04 and Fedora 44 x86-64 release first; native artifacts and clean-target tests | Accepted | Native workflow [run 30582588516](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30582588516) passed at revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`. It built AppImage/deb/rpm candidates, exercised Ubuntu 24.04 and 26.04 hosted VMs and a clean Fedora 44 container, and published the verified revision-bound target records. |
 | 9-14 | Electron/React/TypeScript/Vite, Java 21, jlink, private framed stdio JSON-RPC, Apache-2.0, Guided and Compact modes | Implemented | Root/desktop/worker build files, Maven wrapper, `docs/adr/0001-process-boundaries.md`, `docs/adr/0002-framed-json-rpc.md`, `LICENSE`, Electron smoke. No Gradle or Spring Boot is present. |
 | 20-22 | Navigation/sidebar/workspaces, React Flow, Monaco, xterm, collapsible terminal | Implemented | `apps/desktop/src/renderer/App.tsx`, `ShellProgramCanvas.tsx`, `MonacoBashEditor.tsx`, `XtermTerminal.tsx`, terminal layout tests and Electron smoke. |
 | 23 | Sandboxed renderer, isolation, CSP, blocked navigation, narrow preload | Implemented | `apps/desktop/src/main/security.ts`, `security.test.ts`, renderer CSP, main navigation handlers, validated preload schemas. |
@@ -27,29 +27,30 @@ v1 completion gate.
 | 52-56 | Deterministic Low/Medium/High/Critical policy and mode-specific confirmation | Implemented | Context-sensitive risk service and evidence tests: read-only queries Low; writes/signals/network/package queries Medium; deletion/permissions/package changes/download-to-shell/privilege High; mount/system configuration/recursive/raw-wildcard cases Critical. Renderer and Java independently enforce Critical policy. |
 | 62-69 | Full AiProvider operations, OpenAI Responses/Structured Outputs, installed Ollama, secure credentials, endpoint policy, typed proposals, no execution | Implemented | Provider interfaces/adapters/services, official OpenAI Java SDK, credential-store adapters, strict proposal contracts, provider/service/RPC/integration/Electron tests. No live key or model download is required by verification. |
 | 73-76 | Versioned shared contracts, validation in Electron and Java, safe logs, SQLite without credentials/terminal secrets | Implemented | `v1.*` methods and schemas, strict preload/main/worker parsing, framed stdout with stderr diagnostics, SQLite schema/secret tests. |
-| 83-84 | Checksums, SBOM, notices, release/reproducibility docs, open-source governance/templates | Implemented | Release metadata/finalization scripts, CycloneDX and license aggregation, `NOTICE`, README/architecture/security/governance/contribution documents and GitHub templates. Artifact publication still follows native acceptance. |
+| 83-84 | Checksums, SBOM, notices, release/reproducibility docs, open-source governance/templates | Implemented | Release metadata/finalization scripts, CycloneDX and license aggregation, `NOTICE`, README/architecture/security/governance/contribution documents and GitHub templates. The deterministic repository-file secret scan is part of `pnpm verify`, and pull requests reject newly introduced high/critical vulnerable dependencies; publication remains an explicit maintainer action. |
 | 89-91 | Unit/property coverage for compaction, quoting, conflicts, parameters, risk, overlays, export, redaction | Implemented | Contract, Vitest, Maven unit/property suites and the full `pnpm verify` gate. |
-| 92 | Catalog/manual/execution checks on all three Linux targets | External acceptance | Native Ubuntu 24.04/26.04 and Fedora 44 workflow jobs emit structured target records only after install, launch, PTY, uninstall, and data-preservation checks. The aggregate verifier requires all records to share the checked-out source revision; a recorded run remains a release gate. |
-| 93 | PTY streaming, resize, stdin, cancellation, nonzero exit, tree cleanup, sudo non-retention | Implemented; native Linux run required | Cross-platform service tests pass locally; Linux-only Pty4J tests are present and intentionally skipped on Windows. `tests/integration/pty-throughput.mjs` measures 4 MiB end-to-end through Pty4J and framed JSON-RPC from both source and installed deb/rpm runtimes. |
+| 92 | Catalog/manual/execution checks on all three Linux targets | Accepted | Ubuntu 24.04/26.04 and Fedora 44 jobs emitted structured target records after install, launch, PTY, uninstall, and data-preservation checks. The aggregate verifier accepted the complete set for revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`. |
+| 93 | PTY streaming, resize, stdin, cancellation, nonzero exit, tree cleanup, sudo non-retention | Accepted | Service tests cover lifecycle semantics. Native Linux workflow probes streamed 4 MiB end-to-end through Pty4J and framed JSON-RPC from the installed deb/rpm runtimes on all three target environments. |
 | 94-95 | Mocked AI failure matrix and no autonomous execution | Implemented | Ollama/OpenAI/provider/service/RPC tests and proposal schema invariant. |
 | 96 | Electron E2E across primary workflows, accessibility, keyboard, isolation | Implemented with composite coverage | Electron smoke covers both modes, manuals, semantic visual editing, bookmarks, language tools, clipboard, terminal/history, AI, accessibility focus/shortcuts, and isolation; worker integration covers project reopen/export generation. Native file-dialog/installer behavior is covered by the Linux release workflow. |
-| 101-102 | Complete focused Linux MVP and offline core; AI optional | Implemented, native release acceptance pending | Core verification runs with no API key, Ollama model, network service, or system Java runtime for the packaged runtime check. |
+| 101-102 | Complete focused Linux MVP and offline core; AI optional | Accepted | Core verification runs with no API key, Ollama model, network service, or system Java runtime. The installed candidate matrix passed with system Java overrides absent. |
 | 103 | English initially, localization-ready strings | Implemented | One typed shared English catalog serves React and Electron main; locale-neutral workspace IDs, locale fallback, interpolation, plurals, date/number formatting, native dialogs, graph/editor/terminal helper output, accessibility copy, and inline-string regression guards are verified by `i18n.test.ts`. |
 | 104, 106 | No accounts/cloud/SSH/team/plugins/auto-install/telemetry; no Spring Boot | Implemented scope control | No such product capability or dependency exists. |
 | 82 | Later signed/notarized macOS/Zsh and signed Windows/PowerShell tracks; WSL later | Post-v1 | Architecture remains adapter-oriented; these are Phases 11-12, not Linux v1 blockers. |
 
-## Current release blockers
+## External release administration
 
-1. Run the native `linux-release` workflow and retain its verified,
-   revision-bound acceptance artifact for Ubuntu 24.04, Ubuntu 26.04, and
-   Fedora 44. Each target record covers install, launch, PTY execution,
-   uninstall, data preservation, and no-system-JDK evidence.
-2. Repeat Fedora acceptance on a clean VM if container evidence is not accepted
-   for the release sign-off.
-3. Complete artifact signing/publication approval.
+The repository implementation and automated Linux MVP acceptance gate are
+complete. Public beta publication still requires maintainer authorization and
+release credentials. If the release approver does not accept the clean Fedora
+44 container record, repeat the same rpm checklist on a clean Fedora 44 VM.
+Linux artifact signing is a publication-policy decision; macOS notarization and
+Windows code signing remain explicit later-release requirements.
 
-## In-repository hardening backlog
-
-1. Add support-bundle/log-rotation functionality only if beta operations
-   require file-backed diagnostics; stderr already satisfies the protocol
-   integrity requirement.
+The responsive-polish candidate currently exists as an uncommitted Git Flow
+feature branch. It has complete local and isolated Ubuntu 24.04 verification,
+including real AppImage/deb/rpm generation and an installed-deb lifecycle, but
+the earlier accepted workflow revision does not prove this new candidate.
+Acceptance must be renewed by the repository workflow for the eventual commit;
+until then, this matrix is implementation evidence rather than publication
+approval for the responsive candidate.

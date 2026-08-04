@@ -15,6 +15,7 @@ import type {
 import { completionCandidates, hoverDetails } from "./bash-language";
 import { deduplicateLanguageDiagnostics } from "./language-diagnostics";
 import { useI18n } from "./i18n";
+import { useTheme } from "./theme";
 
 type WorkerScope = typeof globalThis & {
   MonacoEnvironment?: { getWorker: () => Worker };
@@ -32,7 +33,10 @@ export function MonacoBashEditor({ value, onChange, commands, diagnostics }: {
   diagnostics: ShellDiagnostic[];
 }) {
   const { plural, t } = useI18n();
+  const { resolvedTheme } = useTheme();
   const modelRef = useRef<monaco.editor.ITextModel | null>(null);
+  const editorViewportRef = useRef<HTMLDivElement | null>(null);
+  const layoutCleanupRef = useRef<(() => void) | null>(null);
   const languageSessionRef = useRef<string | null>(null);
   const languageVersionRef = useRef(1);
   const sourceRef = useRef(value);
@@ -46,6 +50,8 @@ export function MonacoBashEditor({ value, onChange, commands, diagnostics }: {
     "connecting"
   );
   sourceRef.current = value;
+
+  useEffect(() => () => layoutCleanupRef.current?.(), []);
 
   useEffect(() => {
     let active = true;
@@ -325,12 +331,14 @@ export function MonacoBashEditor({ value, onChange, commands, diagnostics }: {
           </button>
           {toolMessage !== null && <span role="status">{toolMessage}</span>}
         </div>
+        <div className="monaco-editor-viewport" ref={editorViewportRef}>
         <Editor
-        height="220px"
+        height="100%"
         language="shell"
-        theme="vs-dark"
+        theme={resolvedTheme === "dark" ? "vs-dark" : "vs"}
         value={value}
         onMount={(editor) => {
+          layoutCleanupRef.current?.();
           modelRef.current = editor.getModel();
           if (modelRef.current !== null) {
             applyDiagnosticMarkers(modelRef.current, diagnostics, t("editor.parserSource"));
@@ -340,12 +348,33 @@ export function MonacoBashEditor({ value, onChange, commands, diagnostics }: {
               deduplicateLanguageDiagnostics([...languageDiagnostics, ...shellCheckDiagnostics])
             );
           }
+          const viewport = editorViewportRef.current;
+          if (viewport !== null) {
+            let layoutFrame: number | null = null;
+            const scheduleLayout = () => {
+              if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
+              layoutFrame = window.requestAnimationFrame(() => {
+                layoutFrame = null;
+                const bounds = viewport.getBoundingClientRect();
+                if (bounds.width > 0 && bounds.height > 0) {
+                  editor.layout({ width: bounds.width, height: bounds.height });
+                }
+              });
+            };
+            const observer = new ResizeObserver(scheduleLayout);
+            observer.observe(viewport);
+            scheduleLayout();
+            layoutCleanupRef.current = () => {
+              if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
+              observer.disconnect();
+            };
+          }
         }}
         onChange={(nextValue) => onChange((nextValue ?? "").slice(0, 1_000_000))}
         loading={<span>{t("editor.loading")}</span>}
         options={{
           accessibilitySupport: "auto",
-          automaticLayout: true,
+          automaticLayout: false,
           contextmenu: false,
           fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace",
           fontSize: 12,
@@ -360,6 +389,7 @@ export function MonacoBashEditor({ value, onChange, commands, diagnostics }: {
           wordWrap: "on"
         }}
         />
+        </div>
         <span className={`language-server-status ${languageStatus}`} role="status">
           {languageStatus === "connected"
             ? t("editor.languageConnected")

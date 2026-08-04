@@ -388,9 +388,15 @@ Current implementation checkpoint (2026-07-31):
   fallbacks, and Electron native dialogs. Locale-neutral workspace IDs,
   fallback, interpolation, plural, date/number formatting, and inline-copy
   regression guards make additional locales an additive catalog task.
-- In progress: recording the external three-distribution acceptance run,
-  obtaining Fedora clean-VM sign-off, and adding file-backed log/support-bundle
-  operations only if beta operations require them.
+- Complete: native workflow run 30582588516 passed the Ubuntu 24.04, Ubuntu
+  26.04, and Fedora 44 matrix at revision
+  `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`.
+- Complete: deterministic secret-pattern scanning is part of `pnpm verify`;
+  pull requests reject newly introduced high/critical vulnerable runtime or
+  development dependencies; dependency inventories, license aggregation, and
+  SBOM verification remain release gates. File-backed log/support-bundle
+  operations are intentionally deferred unless beta operations show stderr
+  diagnostics are insufficient.
 
 Exit gate:
 
@@ -410,7 +416,7 @@ Deliverables:
 - Clean-VM installer/uninstaller and first-run smoke tests.
 - Beta issue templates, diagnostic instructions, and release-blocker triage process.
 
-Current implementation checkpoint (2026-07-29):
+Current implementation checkpoint (2026-07-31):
 
 - Complete: Maven `runtime-image` profile with an explicit jlink module set,
   packaged Java executable resolution, Maven/runtime integration smoke, and an
@@ -427,8 +433,12 @@ Current implementation checkpoint (2026-07-29):
 - Complete: an original repository-native SVG application mark, deterministic
   packaging-asset policy checks, and synchronized Linux desktop-name/WM_CLASS
   metadata. The packaged Windows executable confirms the generated icon path.
-- Pending: recorded native workflow results, Fedora clean-VM evidence,
-  artifact signing, and publication approval.
+- Complete: native run 30582588516 built and verified the three package formats,
+  launched the AppImage, installed/launched/exercised/uninstalled deb candidates
+  on Ubuntu 24.04/26.04, and performed the equivalent rpm lifecycle in a clean
+  Fedora 44 container. All strict records passed aggregate revision verification.
+- External administration: a Fedora VM repeat if required by the release
+  approver, Linux signature-policy execution, and publication approval.
 
 Exit gate:
 
@@ -531,23 +541,19 @@ Any request to add these items should be evaluated as a separate milestone so it
 | M11 | Signed/notarized macOS/Zsh release. |
 | M12 | Signed Windows/PowerShell release. |
 
-## 10. Immediate implementation backlog
+## 10. Remaining release administration
 
 The line-by-line status and evidence are maintained in
-`outputs/specification-acceptance.md`. The next concrete batches close its
-remaining specification and native-release acceptance gaps:
+`outputs/specification-acceptance.md`. No in-repository Linux MVP capability is
+open. Before a public beta:
 
-1. Audit the full specification line by line against implementation and tests;
-   turn every remaining discrepancy into a bounded acceptance item.
-2. Continue beyond the verified 62-command catalog or 18-page TLDR supplement
-   only where exact source-backed coverage adds clear product value.
-3. Extend parser/property coverage only without weakening exact raw preservation
-   or literal/variable distinctions.
-4. Add support-bundle/log-rotation hardening only if beta operations show that
-   safe stderr diagnostics are insufficient.
-5. Record native Ubuntu 24.04, Ubuntu 26.04, and Fedora 44 packaging/install/
-   launch/execute/uninstall workflow results, with Fedora clean-VM evidence.
-6. Resolve any findings, then complete signing and publication approval.
+1. Select the exact source revision and rerun the complete native matrix.
+2. Repeat Fedora acceptance on a clean VM only if the release approver requires
+   evidence beyond the clean Fedora 44 container job.
+3. Apply the maintainer-selected Linux artifact-signature policy with controlled
+   release credentials.
+4. Triage any release-blocking finding, approve the release, and publish the
+   already verified checksums, SBOMs, notices, notes, and candidates together.
 
 ## Sources checked for the AI phase
 

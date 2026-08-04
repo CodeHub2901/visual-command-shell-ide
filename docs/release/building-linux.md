@@ -22,10 +22,21 @@ Run the complete deterministic gate:
 pnpm verify
 ```
 
-Linux CI configures Electron's downloaded `chrome-sandbox` helper with root
-ownership and mode `4755` before launching any development or packaged smoke.
-Do not replace that setup with `--no-sandbox`; renderer sandboxing is part of
-the release security boundary.
+Linux CI launches Electron under Xvfb with `--no-sandbox`, `--disable-gpu`, and
+`--disable-dev-shm-usage`. These switches are scoped to CI runners, where the
+downloaded Chromium SUID helper cannot be configured reliably. Normal desktop
+launches do not receive those switches; the renderer also retains context
+isolation, sandboxed web preferences, disabled Node integration, and the local
+content-security policy.
+
+On Wayland, Command IDE requests Electron's automatic Ozone backend selection.
+X11 sessions retain Electron's normal defaults. VMware Linux guests use
+software rendering by default to avoid common virtual-GPU startup failures.
+Advanced users can set `CMD_IDE_HARDWARE_ACCELERATION=1` before launch to test
+hardware acceleration in a VMware guest, or `CMD_IDE_DISABLE_GPU=1` to request
+software rendering explicitly. Either change requires a restart. The Settings
+workspace reports the detected session, virtualization, graphics mode, native
+transparency choice, and any active compatibility handling.
 
 `pnpm build` creates the shaded worker JAR through Maven and runs the Maven
 `runtime-image` profile. That profile uses `jlink` with the explicitly reviewed
@@ -75,9 +86,13 @@ The `linux-release` GitHub Actions workflow builds on a native Ubuntu 24.04
 x86-64 VM. It launches the unpacked app and AppImage, then installs, launches,
 and uninstalls the deb on fresh Ubuntu 24.04 and Ubuntu 26.04 hosted VMs. A
 Fedora 44 container performs the equivalent rpm check as an unprivileged
-desktop user. Fedora clean-VM evidence is still required before publication;
-the container job is an early compatibility gate, not a substitute for that
-release record.
+desktop user. That clean target container is the automated Fedora acceptance
+gate. A release approver may additionally request a clean Fedora VM record when
+kernel-level integration evidence is part of the publication policy.
+
+The first complete automated matrix passed in
+[workflow run 30582588516](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30582588516)
+for source revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`.
 
 Every installed-app smoke records the production React Flow render time and
 zoom p95 for a 1,000-node canvas under Xvfb. The native build gate and each
@@ -104,9 +119,11 @@ duplicate or missing targets, mixed revisions, incomplete checks, and
 out-of-budget measurements. The verified set is published as the
 `command-ide-native-acceptance-records` workflow artifact.
 
-Release publication remains blocked until the workflow and the clean-VM
-release checklist pass. Never publish an artifact built from a dirty or
-unrecorded source state.
+Release publication remains a maintainer-controlled action. The automated
+workflow gate must pass for the exact publication revision. If the release
+approver requires kernel-level Fedora VM evidence in addition to the clean
+Fedora container record, the same checklist must also pass on that VM. Never
+publish an artifact built from a dirty or unrecorded source state.
 
 ## Verification record
 

@@ -24,7 +24,7 @@ export function resolveAppShortcut(input: ShortcutInput): AppShortcut | null {
     return { kind: "focus-search" };
   }
   if (!input.altKey || input.ctrlKey || input.metaKey || input.shiftKey) return null;
-  if (/^[1-7]$/.test(key)) return { kind: "workspace", index: Number(key) - 1 };
+  if (/^[1-8]$/.test(key)) return { kind: "workspace", index: Number(key) - 1 };
   if (key === "g") return { kind: "mode", mode: "Guided" };
   if (key === "c") return { kind: "mode", mode: "Compact" };
   if (key === "t") return { kind: "toggle-terminal" };

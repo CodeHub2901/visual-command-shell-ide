@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { electronLaunchPlan } from "./electron-launch.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const executable = packagedExecutable(repositoryRoot);
@@ -22,8 +23,13 @@ assert.equal(
   `Packaged metadata verification failed\n${metadataCheck.stdout}\n${metadataCheck.stderr}`
 );
 
-const command = process.platform === "linux" ? "xvfb-run" : executable;
-const args = process.platform === "linux" ? ["-a", executable] : [];
+const isLinux = process.platform === "linux";
+const inCi = Boolean(process.env.CI) || Boolean(process.env.GITHUB_ACTIONS);
+const { command, args } = electronLaunchPlan({
+  platform: isLinux ? "linux" : process.platform,
+  executable,
+  inCi
+});
 const child = spawn(command, args, {
   cwd: path.dirname(executable),
   windowsHide: true,

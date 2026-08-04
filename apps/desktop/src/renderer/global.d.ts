@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Divyang S Mistry
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AiConnectionResult, AiEndpointParams, AiModelParams, AiModelsResult, AiProposalResult, AiRequest, BookmarkListResult, BookmarkSaveParams, CatalogDiscoveryResult, CatalogProbeVersionResult, CatalogSearchResult, ClipboardCopyResult, CredentialStatus, ExecutionEvent, ExecutionStartResult, ExecutionStartUiParams, ExportCreateParams, FileExportResult, HealthCheckResult, HistoryListResult, LanguageCompletionResult, LanguageDiagnosticsEvent, LanguageHoverResult, LanguageOpenResult, LanguageReferencesResult, LanguageSymbolsResult, ManualGetResult, ProjectFileImportResult, ProjectGetResult, ProjectListResult, RiskAssessment, ScriptProject, ShellCheckResult, ShellGenerateResult, ShellParseResult, ShellProgram, ShfmtResult, StructuredBookmark, SystemProfile, ToolingProfile, WorkingDirectoryResult } from "@cmd-ide/contracts";
+import type { AiConnectionResult, AiEndpointParams, AiModelParams, AiModelsResult, AiProposalResult, AiRequest, BookmarkListResult, BookmarkSaveParams, CatalogDiscoveryResult, CatalogProbeVersionResult, CatalogSearchResult, ClipboardCopyResult, CredentialStatus, DesktopEnvironmentProfile, ExecutionEvent, ExecutionStartResult, ExecutionStartUiParams, ExportCreateParams, FileExportResult, HealthCheckResult, HistoryListResult, LanguageCompletionResult, LanguageDiagnosticsEvent, LanguageHoverResult, LanguageOpenResult, LanguageReferencesResult, LanguageSymbolsResult, ManualGetResult, ProjectFileImportResult, ProjectGetResult, ProjectListResult, RiskAssessment, ScriptProject, ShellCheckResult, ShellGenerateResult, ShellParseResult, ShellProgram, ShfmtResult, StructuredBookmark, SystemProfile, ToolingProfile, WorkingDirectoryResult } from "@cmd-ide/contracts";
 
 declare global {
   const __COMMAND_IDE_VERSION__: string;
@@ -14,6 +14,7 @@ declare global {
       }>;
       system: Readonly<{
         detect: () => Promise<SystemProfile>;
+        desktopEnvironment: () => Promise<DesktopEnvironmentProfile>;
       }>;
       tooling: Readonly<{
         detect: () => Promise<ToolingProfile>;
