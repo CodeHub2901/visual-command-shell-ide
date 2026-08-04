@@ -8,6 +8,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const releaseVersion = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, "package.json"), "utf8")
+).version;
+const nodeApplicationRef = `pkg:npm/command-ide@${releaseVersion}`;
+const combinedApplicationRef = `pkg:generic/command-ide@${releaseVersion}`;
 const outputDirectory = path.join(repositoryRoot, "build", "release-metadata");
 const javaSbomPath = path.join(outputDirectory, "command-ide-java.cdx.json");
 const nodeSbomPath = path.join(outputDirectory, "command-ide-node.cdx.json");
@@ -64,16 +69,16 @@ const nodeSbom = {
   metadata: {
     component: {
       type: "application",
-      "bom-ref": "pkg:npm/command-ide@0.1.0",
+      "bom-ref": nodeApplicationRef,
       name: "Command IDE Node workspace",
-      version: "0.1.0",
+      version: releaseVersion,
       licenses: [{ license: { id: "Apache-2.0" } }]
     }
   },
   components: [...components.values()].sort(compareBomRef),
   dependencies: mergeDependencies([
     {
-      ref: "pkg:npm/command-ide@0.1.0",
+      ref: nodeApplicationRef,
       dependsOn: [...new Set(workspaceRefs)].sort()
     },
     ...serializeDependencies(dependencyGraph)
@@ -99,7 +104,7 @@ const combinedDependencies = mergeDependencies([
   ...(javaSbom.dependencies ?? []),
   ...nodeSbom.dependencies,
   {
-    ref: "pkg:generic/command-ide@0.1.0",
+    ref: combinedApplicationRef,
     dependsOn: [javaRoot["bom-ref"], nodeSbom.metadata.component["bom-ref"]]
   }
 ]);
@@ -110,9 +115,9 @@ const combinedSbom = {
   metadata: {
     component: {
       type: "application",
-      "bom-ref": "pkg:generic/command-ide@0.1.0",
+      "bom-ref": combinedApplicationRef,
       name: "Command IDE",
-      version: "0.1.0",
+      version: releaseVersion,
       licenses: [{ license: { id: "Apache-2.0" } }]
     }
   },

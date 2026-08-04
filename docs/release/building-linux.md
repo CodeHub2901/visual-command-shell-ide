@@ -91,8 +91,10 @@ gate. A release approver may additionally request a clean Fedora VM record when
 kernel-level integration evidence is part of the publication policy.
 
 The first complete automated matrix passed in
-[workflow run 30582588516](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30582588516)
-for source revision `fc34ff45cf2f17806f3c3d160c5207e0cd99de25`.
+[workflow run 30940966048](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30940966048)
+for the verified `develop` baseline
+`faed26d7541163b0928e6b09ab4d4e6bc0747757`. A versioned release branch and
+tag must pass the same gate for their own exact revisions before publication.
 
 Every installed-app smoke records the production React Flow render time and
 zoom p95 for a 1,000-node canvas under Xvfb. The native build gate and each

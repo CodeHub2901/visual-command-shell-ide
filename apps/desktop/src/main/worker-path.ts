@@ -20,7 +20,7 @@ export function resolveWorkerJar(): string {
     "..",
     "worker",
     "target",
-    "worker-0.1.0-all.jar"
+    "worker-0.1.0-beta.1-all.jar"
   );
 }
 

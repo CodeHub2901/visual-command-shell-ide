@@ -9,7 +9,7 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const workerJar = path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-all.jar");
+const workerJar = path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-beta.1-all.jar");
 const bundledJava = path.join(
   repositoryRoot,
   "apps",

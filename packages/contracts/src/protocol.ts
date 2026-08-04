@@ -105,7 +105,9 @@ export const CancelRequestParamsSchema = z
 export const HealthCheckResultSchema = z
   .object({
     protocolVersion: z.literal(PROTOCOL_VERSION),
-    workerVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+    workerVersion: z.string().max(64).regex(
+      /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+    ),
     javaVersion: z.string().min(1),
     pid: z.number().int().positive()
   })
