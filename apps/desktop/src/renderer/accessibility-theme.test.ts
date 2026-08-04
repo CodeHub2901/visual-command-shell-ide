@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Divyang S Mistry
 // SPDX-License-Identifier: Apache-2.0
 
+/// <reference types="node" />
+
 import { describe, expect, it } from "vitest";
-import styles from "./styles.css?raw";
+import { readFileSync } from "node:fs";
+
+const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
 
 function themeToken(theme: "dark" | "light", token: string): string {
   const block = new RegExp(`:root\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`).exec(styles)?.[1];
