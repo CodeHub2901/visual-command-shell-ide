@@ -1,6 +1,6 @@
 {
   "name": "@cmd-ide/contracts",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "private": true,
   "license": "Apache-2.0",
   "main": "dist/index.js",
@@ -22,4 +22,3 @@
     "vitest": "4.1.10"
   }
 }
-

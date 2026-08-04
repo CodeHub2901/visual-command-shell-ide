@@ -42,36 +42,16 @@ jobs:
           sudo apt-get install --yes rpm xvfb
       - run: chmod +x mvnw
       - run: pnpm install --frozen-lockfile
-      - name: Configure Chromium sandbox helper
-        shell: bash
-        run: |
-          electron_executable="$(
-            cd apps/desktop
-            node -e "process.stdout.write(require('electron'))" | tail -n 1
-          )"
-          sandbox_helper="$(realpath "$(dirname "$electron_executable")/chrome-sandbox")"
-          printf 'Chromium sandbox helper: %s\n' "$sandbox_helper"
-          test -f "$sandbox_helper"
-          sudo chown 0:0 "$sandbox_helper"
-          sudo chmod 4755 "$sandbox_helper"
-          printf 'Chromium sandbox owner/mode: %s %s\n' \
-            "$(stat --format='%u:%g' "$sandbox_helper")" \
-            "$(stat --format='%a' "$sandbox_helper")"
-          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
-          test -u "$sandbox_helper"
       - run: pnpm verify
+      - name: Upload responsive Linux verification captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-linux-screenshots
+          path: work/responsive-screenshots
+          if-no-files-found: warn
+          retention-days: 14
       - run: pnpm dist:linux
-      - name: Configure unpacked Chromium sandbox helper
-        shell: bash
-        run: |
-          sandbox_helper="$(realpath release/linux-unpacked/chrome-sandbox)"
-          sudo chown 0:0 "$sandbox_helper"
-          sudo chmod 4755 "$sandbox_helper"
-          printf 'Unpacked Chromium sandbox owner/mode: %s %s\n' \
-            "$(stat --format='%u:%g' "$sandbox_helper")" \
-            "$(stat --format='%a' "$sandbox_helper")"
-          test "$(stat --format='%u:%g' "$sandbox_helper")" = "0:0"
-          test -u "$sandbox_helper"
       - name: Verify unpacked application
         run: pnpm test:packaged
       - name: Verify AppImage launch

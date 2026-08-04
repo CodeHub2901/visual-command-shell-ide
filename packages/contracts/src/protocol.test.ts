@@ -12,6 +12,7 @@ import {
   CatalogDiscoveryResultSchema,
   CatalogProbeVersionResultSchema,
   CommandOptionSchema,
+  DesktopEnvironmentProfileSchema,
   SystemProfileSchema,
   ToolingProfileSchema,
   LanguageOpenResultSchema,
@@ -253,11 +254,30 @@ describe("protocol contracts", () => {
     expect(() =>
       HealthCheckResultSchema.parse({
         protocolVersion: "2.0",
-        workerVersion: "0.1.0",
+        workerVersion: "0.1.0-beta.1",
         javaVersion: "21",
         pid: 42
       })
     ).toThrow();
+  });
+
+  it("accepts bounded stable and prerelease worker versions", () => {
+    for (const workerVersion of ["0.1.0", "0.1.0-beta.1", "1.2.3-rc.2+build.7"]) {
+      expect(HealthCheckResultSchema.parse({
+        protocolVersion: "1.0",
+        workerVersion,
+        javaVersion: "21",
+        pid: 42
+      }).workerVersion).toBe(workerVersion);
+    }
+    for (const workerVersion of ["v0.1.0", "0.1", "01.0.0", "0.1.0 beta"]) {
+      expect(() => HealthCheckResultSchema.parse({
+        protocolVersion: "1.0",
+        workerVersion,
+        javaVersion: "21",
+        pid: 42
+      })).toThrow();
+    }
   });
 
   it("validates cancellation request identifiers", () => {
@@ -283,6 +303,27 @@ describe("protocol contracts", () => {
         pathEntries: ["/usr/local/bin", "/usr/bin"]
       }).distro?.supported
     ).toBe(true);
+  });
+
+  it("validates bounded desktop startup diagnostics", () => {
+    expect(DesktopEnvironmentProfileSchema.parse({
+      platform: "linux",
+      sessionType: "wayland",
+      desktop: "GNOME",
+      virtualization: "vmware",
+      graphicsMode: "software",
+      nativeTransparency: false,
+      appliedWorkarounds: ["wayland-ozone-auto", "vmware-software-rendering"]
+    }).appliedWorkarounds).toHaveLength(2);
+    expect(() => DesktopEnvironmentProfileSchema.parse({
+      platform: "linux",
+      sessionType: "wayland",
+      desktop: "GNOME",
+      virtualization: "vmware",
+      graphicsMode: "software",
+      nativeTransparency: false,
+      appliedWorkarounds: ["unrecognized-workaround"]
+    })).toThrow();
   });
 
   it("validates a bounded offline catalog search", () => {

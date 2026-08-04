@@ -83,6 +83,7 @@ import {
   SYSTEM_DETECT_METHOD,
   SystemDetectParamsSchema,
   SystemProfileSchema,
+  DesktopEnvironmentProfileSchema,
   TOOLING_DETECT_METHOD,
   TOOLING_SHELLCHECK_METHOD,
   TOOLING_SHFMT_METHOD,
@@ -147,6 +148,7 @@ import {
   type HistoryListResult,
   type JsonRpcNotification,
   type SystemProfile,
+  type DesktopEnvironmentProfile,
   type ToolingProfile,
   type ShellCheckResult,
   type ShfmtResult,
@@ -170,9 +172,11 @@ import {
 } from "./worker-path";
 import { atomicWriteUtf8, readBoundedUtf8 } from "./file-operations";
 import { copyGeneratedCommand } from "./clipboard-operations";
+import { createDesktopStartupPlan } from "./linux-startup";
 
 const HEALTH_CHANNEL = "cmd-ide:health-check";
 const SYSTEM_CHANNEL = "cmd-ide:system-detect";
+const DESKTOP_ENVIRONMENT_CHANNEL = "cmd-ide:desktop-environment";
 const TOOLING_CHANNEL = "cmd-ide:tooling-detect";
 const SHELLCHECK_CHANNEL = "cmd-ide:tooling-shellcheck";
 const SHFMT_CHANNEL = "cmd-ide:tooling-shfmt";
@@ -218,13 +222,44 @@ let mainWindow: BrowserWindow | null = null;
 let worker: WorkerSupervisor | null = null;
 const workingDirectories = new Map<string, string>();
 
+function readLinuxDmiIdentity(): string {
+  if (process.platform !== "linux") return "";
+  return ["/sys/class/dmi/id/sys_vendor", "/sys/class/dmi/id/product_name"]
+    .flatMap((filePath) => {
+      try {
+        return [fs.readFileSync(filePath, "utf8").trim()];
+      } catch {
+        return [];
+      }
+    })
+    .join(" ");
+}
+
+const desktopStartupPlan = createDesktopStartupPlan({
+  platform: process.platform,
+  environment: process.env,
+  dmiIdentity: readLinuxDmiIdentity()
+});
+
+if (desktopStartupPlan.ozonePlatformHint !== null) {
+  app.commandLine.appendSwitch("ozone-platform-hint", desktopStartupPlan.ozonePlatformHint);
+}
+if (desktopStartupPlan.disableHardwareAcceleration) {
+  app.disableHardwareAcceleration();
+}
+
 function createWindow(): BrowserWindow {
+  // Native transparency depends on Linux compositor support. Keep it opt-in so
+  // unsupported sessions retain a reliable opaque window while the renderer's
+  // in-app glass materials remain available everywhere.
+  const nativeTransparency = process.env.CMD_IDE_NATIVE_TRANSPARENCY === "1";
   const window = new BrowserWindow({
     width: 1360,
     height: 860,
     minWidth: 980,
     minHeight: 640,
-    backgroundColor: "#10141d",
+    backgroundColor: nativeTransparency ? "#00000000" : "#10141d",
+    transparent: nativeTransparency,
     show: false,
     webPreferences: secureWebPreferences(
       path.join(__dirname, "..", "preload", "index.js"),
@@ -237,10 +272,20 @@ function createWindow(): BrowserWindow {
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.once("ready-to-show", () => window.show());
   window.webContents.once("did-finish-load", () => {
+    const responsiveCaptureDirectory = process.env.CMD_IDE_RESPONSIVE_CAPTURE_DIR;
+    if (!app.isPackaged && responsiveCaptureDirectory !== undefined) {
+      window.webContents.setZoomFactor(1);
+      void captureResponsiveVerification(window, path.resolve(responsiveCaptureDirectory)).catch((error: unknown) => {
+        process.stderr.write(`[responsive] verification failed: ${String(error)}\n`);
+        app.exit(1);
+      });
+      return;
+    }
     const smokeRequested = app.isPackaged
       ? process.env.CMD_IDE_PACKAGED_SMOKE_TEST === "1"
       : process.env.CMD_IDE_SMOKE_TEST === "1";
     if (smokeRequested) {
+      window.webContents.setZoomFactor(1);
       void verifyRendererEditors(window).catch((error: unknown) => {
         process.stderr.write(`[smoke] editor verification failed: ${String(error)}\n`);
         app.exit(1);
@@ -267,8 +312,311 @@ function createWindow(): BrowserWindow {
   return window;
 }
 
+type ResponsiveWorkspace = {
+  id: string;
+  readySelector: string;
+};
+
+type ResponsiveCaptureResult = {
+  file: string;
+  workspace: string;
+  requestedOuterSize: [number, number];
+  actualOuterSize: [number, number];
+  rendererSize: [number, number];
+  imageSize: [number, number];
+  zoomPercent: number;
+  layout: string | null;
+  checks: Record<string, boolean>;
+};
+
+async function captureResponsiveVerification(window: BrowserWindow, outputDirectory: string): Promise<void> {
+  const sizes = [
+    [980, 640],
+    [1024, 768],
+    [1366, 768],
+    [1440, 900],
+    [1920, 1080],
+    [2560, 1440]
+  ] as const;
+  const zoomFactors = [1, 1.5, 2] as const;
+  const additionalZoomFactors = [1.25, 1.75] as const;
+  const workspaces: readonly ResponsiveWorkspace[] = [
+    { id: "catalog", readySelector: ".health-card" },
+    { id: "visual-builder", readySelector: ".guided-builder .react-flow__node" },
+    { id: "script-editor", readySelector: ".compact-editor .monaco-editor" },
+    { id: "manual", readySelector: ".manual-documentation" },
+    { id: "ai-assistant", readySelector: ".ai-view" },
+    { id: "bookmarks", readySelector: ".bookmarks-view" },
+    { id: "history", readySelector: ".history-view" },
+    { id: "settings", readySelector: ".settings-view" }
+  ];
+
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.command-result[data-command-id=\"ls\"]') !== null"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('.command-result[data-command-id="ls"]')?.click()
+  `);
+  await waitForRendererCondition(window, "document.querySelector('.manual-documentation') !== null");
+
+  const captures: ResponsiveCaptureResult[] = [];
+  const additionalScalingChecks: Array<Omit<ResponsiveCaptureResult, "file" | "imageSize">> = [];
+  const failures: string[] = [];
+  for (const zoomFactor of zoomFactors) {
+    window.webContents.setZoomFactor(zoomFactor);
+    for (const requestedSize of sizes) {
+      await applyOuterWindowSize(window, requestedSize[0], requestedSize[1]);
+      await settleResponsiveLayout(window);
+      for (const workspace of workspaces) {
+        await window.webContents.executeJavaScript(`
+          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.id)}]')?.click()
+        `);
+        await waitForRendererCondition(
+          window,
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.id)}`
+            + ` && document.querySelector(${JSON.stringify(workspace.readySelector)}) !== null`,
+          20_000
+        );
+        await settleResponsiveLayout(window);
+        const metrics = await collectResponsiveMetrics(window, workspace.id);
+        const image = await window.webContents.capturePage();
+        const file = `${workspace.id}__${requestedSize[0]}x${requestedSize[1]}__${Math.round(zoomFactor * 100)}pct.png`;
+        fs.writeFileSync(path.join(outputDirectory, file), image.toPNG());
+        const actualOuterSize = window.getSize() as [number, number];
+        const imageSize = image.getSize();
+        metrics.checks.outerSizeApplied = actualOuterSize[0] === requestedSize[0]
+          && actualOuterSize[1] === requestedSize[1];
+        const expectedLayout = metrics.rendererSize[0] >= 1440
+          ? "wide"
+          : metrics.rendererSize[0] >= 1100 ? "medium" : "compact";
+        metrics.checks.layoutBreakpointMatches = metrics.layout === expectedLayout;
+        metrics.checks.captureIsNonEmpty = imageSize.width > 0 && imageSize.height > 0;
+        const capture: ResponsiveCaptureResult = {
+          file,
+          workspace: workspace.id,
+          requestedOuterSize: [requestedSize[0], requestedSize[1]],
+          actualOuterSize,
+          rendererSize: metrics.rendererSize,
+          imageSize: [imageSize.width, imageSize.height],
+          zoomPercent: Math.round(zoomFactor * 100),
+          layout: metrics.layout,
+          checks: metrics.checks
+        };
+        captures.push(capture);
+        for (const [check, passed] of Object.entries(metrics.checks)) {
+          if (!passed) failures.push(`${file}: ${check}`);
+        }
+      }
+      process.stderr.write(
+        `[responsive] captured ${requestedSize[0]}x${requestedSize[1]} at ${Math.round(zoomFactor * 100)}%\n`
+      );
+    }
+  }
+
+  for (const zoomFactor of additionalZoomFactors) {
+    window.webContents.setZoomFactor(zoomFactor);
+    for (const requestedSize of sizes) {
+      await applyOuterWindowSize(window, requestedSize[0], requestedSize[1]);
+      await settleResponsiveLayout(window);
+      for (const workspace of workspaces) {
+        await window.webContents.executeJavaScript(`
+          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.id)}]')?.click()
+        `);
+        await waitForRendererCondition(
+          window,
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.id)}`
+            + ` && document.querySelector(${JSON.stringify(workspace.readySelector)}) !== null`,
+          20_000
+        );
+        await settleResponsiveLayout(window);
+        const metrics = await collectResponsiveMetrics(window, workspace.id);
+        const actualOuterSize = window.getSize() as [number, number];
+        metrics.checks.outerSizeApplied = actualOuterSize[0] === requestedSize[0]
+          && actualOuterSize[1] === requestedSize[1];
+        const expectedLayout = metrics.rendererSize[0] >= 1440
+          ? "wide"
+          : metrics.rendererSize[0] >= 1100 ? "medium" : "compact";
+        metrics.checks.layoutBreakpointMatches = metrics.layout === expectedLayout;
+        const stateName = `${workspace.id}__${requestedSize[0]}x${requestedSize[1]}__${Math.round(zoomFactor * 100)}pct`;
+        additionalScalingChecks.push({
+          workspace: workspace.id,
+          requestedOuterSize: [requestedSize[0], requestedSize[1]],
+          actualOuterSize,
+          rendererSize: metrics.rendererSize,
+          zoomPercent: Math.round(zoomFactor * 100),
+          layout: metrics.layout,
+          checks: metrics.checks
+        });
+        for (const [check, passed] of Object.entries(metrics.checks)) {
+          if (!passed) failures.push(`${stateName}: ${check}`);
+        }
+      }
+      process.stderr.write(
+        `[responsive] checked ${requestedSize[0]}x${requestedSize[1]} at ${Math.round(zoomFactor * 100)}%\n`
+      );
+    }
+  }
+
+  const report = {
+    generatedAt: new Date().toISOString(),
+    platform: process.platform,
+    captureCount: captures.length,
+    expectedCaptureCount: sizes.length * zoomFactors.length * workspaces.length,
+    additionalScalingCheckCount: additionalScalingChecks.length,
+    expectedAdditionalScalingCheckCount: sizes.length * additionalZoomFactors.length * workspaces.length,
+    failures,
+    captures,
+    additionalScalingChecks
+  };
+  fs.writeFileSync(
+    path.join(outputDirectory, "responsive-report.json"),
+    `${JSON.stringify(report, null, 2)}\n`,
+    "utf8"
+  );
+  if (failures.length > 0) {
+    throw new Error(`${failures.length} responsive assertions failed; see responsive-report.json`);
+  }
+  window.webContents.setZoomFactor(1);
+  process.stderr.write(`[responsive] ${captures.length} screenshots and all layout assertions passed\n`);
+  app.quit();
+}
+
+async function settleResponsiveLayout(window: BrowserWindow): Promise<void> {
+  await window.webContents.executeJavaScript(`
+    new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      for (const element of document.querySelectorAll('.workspace-content, .pane-scroll-content')) {
+        element.scrollTop = 0;
+        element.scrollLeft = 0;
+      }
+      resolve(true);
+    })))
+  `);
+  await new Promise<void>((resolve) => setTimeout(resolve, 120));
+}
+
+async function applyOuterWindowSize(window: BrowserWindow, width: number, height: number): Promise<void> {
+  if (window.isMaximized()) window.unmaximize();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    window.setSize(width, height);
+    await window.webContents.executeJavaScript(`
+      new Promise((resolve) => requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }))
+    `);
+    const [actualWidth, actualHeight] = window.getSize();
+    if (actualWidth === width && actualHeight === height) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Electron did not apply requested outer size ${width}x${height}; actual ${window.getSize().join("x")}`);
+}
+
+async function collectResponsiveMetrics(window: BrowserWindow, workspace: string): Promise<{
+  rendererSize: [number, number];
+  layout: string | null;
+  checks: Record<string, boolean>;
+}> {
+  return await window.webContents.executeJavaScript(`
+    (() => {
+      const visible = (element) => {
+        if (!(element instanceof HTMLElement)) return false;
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && rect.width > 0
+          && rect.height > 0
+          && rect.left >= 0
+          && rect.top >= 0
+          && rect.right <= window.innerWidth + 1
+          && rect.bottom <= window.innerHeight + 1;
+      };
+      const shell = document.querySelector('.app-shell');
+      const workspaceHeader = document.querySelector('.workspace-tabs');
+      const activeRail = document.querySelector('[data-workspace-id=${JSON.stringify(workspace)}]');
+      const modeButtons = [...document.querySelectorAll('.mode-switch button')];
+      const primaryActions = [...document.querySelectorAll('.primary-actions button')];
+      const editing = ${JSON.stringify(workspace)} === 'visual-builder'
+        || ${JSON.stringify(workspace)} === 'script-editor';
+      const bodyStyle = getComputedStyle(document.body);
+      const rootStyle = getComputedStyle(document.documentElement);
+      return {
+        rendererSize: [window.innerWidth, window.innerHeight],
+        layout: shell?.getAttribute('data-layout') ?? null,
+        checks: {
+          bodyOverflowHidden: bodyStyle.overflowX === 'hidden' && bodyStyle.overflowY === 'hidden',
+          documentOverflowHidden: rootStyle.overflowX === 'hidden' && rootStyle.overflowY === 'hidden',
+          noHorizontalDocumentOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth
+            && document.body.scrollWidth <= document.body.clientWidth,
+          noVerticalDocumentOverflow: document.documentElement.scrollHeight <= document.documentElement.clientHeight
+            && document.body.scrollHeight <= document.body.clientHeight,
+          activeWorkspaceVisible: visible(activeRail),
+          applicationBarVisible: visible(workspaceHeader),
+          terminalControlReachable: visible(document.querySelector('.terminal-toggle')),
+          safetyModeDiscoverable: modeButtons.length === 2 && modeButtons.every(visible),
+          primaryActionsPresent: !editing || primaryActions.length === 3,
+          primaryActionsVisible: !editing || primaryActions.every(visible),
+          sidebarOwnsOverflow: getComputedStyle(document.querySelector('.command-sidebar .pane-scroll-content')).overflowY === 'auto',
+          workspaceOwnsOverflow: getComputedStyle(document.querySelector('.workspace-content')).overflowY === 'auto',
+          inspectorOwnsOverflow: getComputedStyle(document.querySelector('.inspector .pane-scroll-content')).overflowY === 'auto'
+        }
+      };
+    })()
+  `) as {
+    rendererSize: [number, number];
+    layout: string | null;
+    checks: Record<string, boolean>;
+  };
+}
+
 async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
+  await verifyPolishedNavigation(window);
+  await waitForRendererCondition(window, "document.querySelector('.command-result[data-command-id=\"ls\"]') !== null");
+  const selectedCatalogCommand = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('.command-result[data-command-id="ls"]');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!selectedCatalogCommand) throw new Error("Catalog command selection was unavailable");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.manual-documentation') !== null"
+      + " && document.querySelector('button[aria-label=\"Manual\"]')?.getAttribute('aria-current') === 'page'"
+  );
+  const openedBuilder = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('button[aria-label="Visual Builder"]');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!openedBuilder) throw new Error("Visual Builder workspace button was unavailable");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.guided-builder') !== null"
+      + " && document.querySelector('button[aria-label=\"Visual Builder\"]')?.getAttribute('aria-current') === 'page'"
+  );
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.guided-builder .generated-preview.ready, .guided-builder .generated-preview.error') !== null"
+  );
+  const builderGenerationError = await window.webContents.executeJavaScript(`
+    document.querySelector('.guided-builder .generated-preview.error')?.textContent?.trim() ?? ''
+  `) as string;
+  if (builderGenerationError.length > 0) {
+    throw new Error(`Visual Builder generation failed: ${builderGenerationError}`);
+  }
   await waitForRendererCondition(window, "document.querySelector('.guided-builder .react-flow__node') !== null");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.session-context .draft-state.unsaved, .session-context .draft-state.saved') !== null"
+  );
   await waitForRendererCondition(
     window,
     "document.querySelector('button[aria-label=\"Copy exact generated command\"]')?.disabled === false"
@@ -338,6 +686,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   process.stderr.write("[smoke] explicit optional-tool analysis boundary validated\n");
   await waitForRendererCondition(window, "document.querySelectorAll('.compact-editor .react-flow__node').length >= 2");
   await waitForRendererCondition(window, "document.querySelector('.terminal-panel .xterm') !== null");
+  await verifyActiveSurfaceResizeState(window);
   const openedHistory = Boolean(await window.webContents.executeJavaScript(`
     (() => {
       const button = document.querySelector('button[aria-label="History"]');
@@ -443,7 +792,75 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
     "document.querySelector('.tool-status.bundled')?.textContent?.trim() === 'Bundled'"
   );
   process.stderr.write("[smoke] passive local tooling detection validated\n");
-  const searchFocused = Boolean(await window.webContents.executeJavaScript(`
+  const themeControlsReady = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const choices = [...document.querySelectorAll('.theme-picker [data-theme-option]')];
+      const rail = document.querySelector('.navigation-rail');
+      const glass = rail === null ? '' : getComputedStyle(rail).backdropFilter;
+      return choices.length === 3
+        && choices.every((choice) => choice.getAttribute('role') === 'radio')
+        && glass !== ''
+        && glass !== 'none';
+    })()
+  `));
+  if (!themeControlsReady) throw new Error("Theme controls or frosted material were unavailable");
+  await window.webContents.executeJavaScript(`
+    document.querySelector('[data-theme-option="light"]')?.click()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.documentElement.dataset.theme === 'light'"
+      + " && document.documentElement.style.colorScheme === 'light'"
+      + " && localStorage.getItem('command-ide:theme-preference') === 'light'"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('[data-theme-option="dark"]')?.click()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.documentElement.dataset.theme === 'dark'"
+      + " && document.documentElement.style.colorScheme === 'dark'"
+      + " && localStorage.getItem('command-ide:theme-preference') === 'dark'"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('[data-theme-option="system"]')?.click()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.documentElement.dataset.themePreference === 'system'"
+      + " && localStorage.getItem('command-ide:theme-preference') === 'system'"
+  );
+  process.stderr.write("[smoke] persisted System/Light/Dark glass appearance validated\n");
+  await waitForRendererCondition(
+    window,
+    "document.querySelectorAll('.desktop-environment-panel dd').length === 6"
+  );
+  const reopenedOnboarding = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('.onboarding-settings-panel button');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!reopenedOnboarding) throw new Error("Getting-started walkthrough control was unavailable");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.onboarding-panel') !== null"
+      + " && document.querySelector('[data-active-workspace=\"catalog\"]') !== null"
+      + " && localStorage.getItem('command-ide:onboarding-complete') === null"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('.onboarding-actions button')?.click()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.onboarding-panel') === null"
+      + " && localStorage.getItem('command-ide:onboarding-complete') === '1'"
+      + " && document.activeElement?.matches('.search-label input') === true"
+  );
+  process.stderr.write("[smoke] desktop diagnostics and restartable first-run walkthrough validated\n");
+  const searchShortcutDispatched = Boolean(await window.webContents.executeJavaScript(`
     (() => {
       window.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'k',
@@ -451,13 +868,51 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
         bubbles: true,
         cancelable: true
       }));
-      return document.activeElement?.matches('.search-label input') === true;
+      return true;
     })()
   `));
-  if (!searchFocused) throw new Error("Catalog search keyboard focus shortcut failed");
+  if (!searchShortcutDispatched) throw new Error("Catalog search keyboard shortcut was not dispatched");
+  await waitForRendererCondition(
+    window,
+    "document.activeElement?.matches('.search-label input') === true"
+      + " && document.querySelector('.app-shell')?.classList.contains('sidebar-open') === true"
+  );
+  await window.webContents.executeJavaScript(`
+    (() => {
+      const input = document.querySelector('.search-label input');
+      if (!(input instanceof HTMLInputElement)) return;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(input, 'list');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('[data-clear-catalog-search]') !== null"
+      + " && document.querySelector('#catalog-results .command-result') !== null"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('.search-label input')?.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      bubbles: true,
+      cancelable: true
+    }))
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.activeElement?.matches('#catalog-results .command-result') === true"
+  );
+  await window.webContents.executeJavaScript(`
+    document.querySelector('[data-clear-catalog-search]')?.click()
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.search-label input')?.value === ''"
+      + " && document.activeElement?.matches('.search-label input') === true"
+  );
   await window.webContents.executeJavaScript(`
     window.dispatchEvent(new KeyboardEvent('keydown', {
-      key: '4',
+      key: '5',
       altKey: true,
       bubbles: true,
       cancelable: true
@@ -509,6 +964,315 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   process.stderr.write("[smoke] React Flow and local Monaco editors validated\n");
   await measureInteractiveCanvas(window);
   app.quit();
+}
+
+async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
+  await waitForRendererCondition(window, "document.querySelectorAll('.rail-button').length === 8");
+  await applyOuterWindowSize(window, 980, 640);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.getAttribute('data-layout') === 'compact'"
+      + " && document.querySelector('.app-shell')?.classList.contains('sidebar-closed') === true"
+      + " && document.querySelector('.app-shell')?.classList.contains('inspector-closed') === true"
+  );
+  await waitForRendererCondition(window, "document.querySelectorAll('.workflow-guide li').length === 4");
+  const result = await window.webContents.executeJavaScript(`
+    (() => {
+      const buttons = [...document.querySelectorAll('.rail-button')];
+      const modeSwitch = document.querySelector('.mode-switch');
+      const workflowGuide = document.querySelector('.workflow-guide');
+      const workflowSteps = [...document.querySelectorAll('.workflow-guide li')];
+      const sessionContext = document.querySelector('.session-context');
+      const documentWidth = document.documentElement.clientWidth;
+      const documentHeight = document.documentElement.clientHeight;
+      return {
+        buttonCount: buttons.length,
+        iconsPresent: buttons.every((button) => button.querySelector('.workspace-icon') !== null),
+        labelsPresent: buttons.every((button) => {
+          const label = button.getAttribute('aria-label');
+          return label !== null && label.length > 2 && button.getAttribute('data-label') === label;
+        }),
+        activeCount: buttons.filter((button) => button.getAttribute('aria-current') === 'page').length,
+        modeDescription: modeSwitch?.getAttribute('aria-describedby') === 'mode-context',
+        workflowStepCount: workflowSteps.length,
+        workflowActiveCount: workflowSteps.filter((step) => step.classList.contains('active')).length,
+        workflowLabelPresent: (workflowGuide?.getAttribute('aria-label')?.length ?? 0) > 3,
+        contextLabelPresent: (sessionContext?.getAttribute('aria-label')?.length ?? 0) > 3,
+        contextFieldCount: sessionContext?.querySelectorAll(':scope > span').length ?? 0,
+        contextHasDraftState: sessionContext?.querySelector('.draft-state') !== null,
+        contextHasRiskState: sessionContext?.querySelector('.context-risk') !== null,
+        contextIsLocal: sessionContext?.querySelector('.local-only') !== null,
+        layoutBand: document.querySelector('.app-shell')?.getAttribute('data-layout'),
+        sidebarExpanded: document.querySelector('.sidebar-toggle')?.getAttribute('aria-expanded'),
+        inspectorExpanded: document.querySelector('.inspector-toggle')?.getAttribute('aria-expanded'),
+        resizeHandleCount: document.querySelectorAll('.pane-resize-handle').length,
+        bodyOverflow: [getComputedStyle(document.body).overflowX, getComputedStyle(document.body).overflowY],
+        sidebarOverflow: getComputedStyle(document.querySelector('.command-sidebar .pane-scroll-content')).overflowY,
+        workspaceOverflow: getComputedStyle(document.querySelector('.workspace-content')).overflowY,
+        inspectorOverflow: getComputedStyle(document.querySelector('.inspector .pane-scroll-content')).overflowY,
+        horizontalOverflow: document.documentElement.scrollWidth > documentWidth
+          || document.body.scrollWidth > documentWidth,
+        verticalOverflow: document.documentElement.scrollHeight > documentHeight
+          || document.body.scrollHeight > documentHeight,
+        viewport: [documentWidth, documentHeight],
+        scrollSize: [document.documentElement.scrollWidth, document.documentElement.scrollHeight],
+        bodyScrollSize: [document.body.scrollWidth, document.body.scrollHeight],
+        innerViewport: [window.innerWidth, window.innerHeight],
+        appShellSize: (() => {
+          const shell = document.querySelector('.app-shell')?.getBoundingClientRect();
+          return shell === undefined ? null : [Math.round(shell.width), Math.round(shell.height)];
+        })(),
+        overflowElements: [...document.querySelectorAll('body *')]
+          .map((element) => ({
+            element: element instanceof HTMLElement
+              ? element.tagName.toLowerCase() + '.' + String(element.className)
+              : element.tagName.toLowerCase(),
+            bottom: Math.round(element.getBoundingClientRect().bottom),
+            scrollHeight: element instanceof HTMLElement ? element.scrollHeight : 0,
+            clientHeight: element instanceof HTMLElement ? element.clientHeight : 0,
+            overflowY: getComputedStyle(element).overflowY
+          }))
+          .filter((entry) => entry.bottom > documentHeight + 1)
+          .sort((left, right) => right.bottom - left.bottom)
+          .slice(0, 8)
+      };
+    })()
+  `) as {
+    buttonCount: number;
+    iconsPresent: boolean;
+    labelsPresent: boolean;
+    activeCount: number;
+    modeDescription: boolean;
+    workflowStepCount: number;
+    workflowActiveCount: number;
+    workflowLabelPresent: boolean;
+    contextLabelPresent: boolean;
+    contextFieldCount: number;
+    contextHasDraftState: boolean;
+    contextHasRiskState: boolean;
+    contextIsLocal: boolean;
+    layoutBand: string | null;
+    sidebarExpanded: string | null;
+    inspectorExpanded: string | null;
+    resizeHandleCount: number;
+    bodyOverflow: [string, string];
+    sidebarOverflow: string;
+    workspaceOverflow: string;
+    inspectorOverflow: string;
+    horizontalOverflow: boolean;
+    verticalOverflow: boolean;
+    viewport: [number, number];
+    scrollSize: [number, number];
+    bodyScrollSize: [number, number];
+    innerViewport: [number, number];
+    appShellSize: [number, number] | null;
+    overflowElements: Array<{
+      element: string;
+      bottom: number;
+      scrollHeight: number;
+      clientHeight: number;
+      overflowY: string;
+    }>;
+  };
+  if (result.buttonCount !== 8
+      || !result.iconsPresent
+      || !result.labelsPresent
+      || result.activeCount !== 1
+      || !result.modeDescription
+      || result.workflowStepCount !== 4
+      || result.workflowActiveCount !== 1
+      || !result.workflowLabelPresent
+      || !result.contextLabelPresent
+      || result.contextFieldCount !== 5
+      || !result.contextHasDraftState
+      || !result.contextHasRiskState
+      || !result.contextIsLocal
+      || result.layoutBand !== "compact"
+      || result.sidebarExpanded !== "false"
+      || result.inspectorExpanded !== "false"
+      || result.resizeHandleCount !== 3
+      || result.bodyOverflow.some((value) => value !== "hidden")
+      || result.sidebarOverflow !== "auto"
+      || result.workspaceOverflow !== "auto"
+      || result.inspectorOverflow !== "auto"
+      || result.horizontalOverflow
+      || result.verticalOverflow) {
+    throw new Error(`Minimum-window navigation polish check failed: ${JSON.stringify(result)}`);
+  }
+  const openedSidebar = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('.sidebar-toggle');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!openedSidebar) throw new Error("Compact contextual sidebar toggle was unavailable");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('sidebar-open') === true"
+      + " && document.activeElement?.id === 'contextual-sidebar'"
+  );
+  await window.webContents.executeJavaScript(`
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('sidebar-closed') === true"
+      + " && document.activeElement?.matches('.sidebar-toggle') === true"
+  );
+  const openedInspector = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = document.querySelector('.inspector-toggle');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!openedInspector) throw new Error("Compact inspector toggle was unavailable");
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('inspector-open') === true"
+      + " && document.activeElement?.id === 'command-inspector'"
+  );
+  await window.webContents.executeJavaScript(`
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  `);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('inspector-closed') === true"
+      + " && document.activeElement?.matches('.inspector-toggle') === true"
+  );
+  const terminalResizeRequested = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const handle = document.querySelector('.terminal-panel .pane-resize-handle');
+      if (!(handle instanceof HTMLElement)) return false;
+      const before = Number(handle.getAttribute('aria-valuenow'));
+      handle.dataset.beforeResize = String(before);
+      const maximum = Number(handle.getAttribute('aria-valuemax'));
+      const key = before < maximum ? 'ArrowUp' : 'ArrowDown';
+      handle.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      return true;
+    })()
+  `));
+  if (!terminalResizeRequested) throw new Error("Keyboard terminal pane resize handle was unavailable");
+  await waitForRendererCondition(
+    window,
+    "(() => {"
+      + " const handle = document.querySelector('.terminal-panel .pane-resize-handle');"
+      + " if (!(handle instanceof HTMLElement)) return false;"
+      + " const before = Number(handle.dataset.beforeResize);"
+      + " const stored = JSON.parse(localStorage.getItem('command-ide:pane-layout') ?? '{}');"
+      + " return Number(handle.getAttribute('aria-valuenow')) !== before && stored.terminal !== before;"
+      + " })()"
+  );
+  await applyOuterWindowSize(window, 1360, 860);
+  process.stderr.write("[smoke] minimum-window responsive panels, focus restoration, and resizing validated\n");
+}
+
+async function verifyActiveSurfaceResizeState(window: BrowserWindow): Promise<void> {
+  await applyOuterWindowSize(window, 1366, 768);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.getAttribute('data-layout') === 'medium'"
+  );
+  const surfaceState = await window.webContents.executeJavaScript(`
+    (() => {
+      const editor = document.querySelector('.compact-editor .monaco-editor');
+      const canvas = document.querySelector('.compact-editor .react-flow');
+      const terminal = document.querySelector('.terminal-panel .xterm');
+      const node = document.querySelector('.compact-editor .react-flow__node');
+      const viewport = document.querySelector('.compact-editor .react-flow__viewport');
+      const preview = document.querySelector('.execution-review pre');
+      const available = {
+        editor: editor instanceof HTMLElement,
+        canvas: canvas instanceof HTMLElement,
+        terminal: terminal instanceof HTMLElement,
+        node: node instanceof HTMLElement,
+        viewport: viewport instanceof HTMLElement,
+        draftReview: preview !== null
+      };
+      if (!(editor instanceof HTMLElement)
+          || !(canvas instanceof HTMLElement)
+          || !(terminal instanceof HTMLElement)
+          || !(node instanceof HTMLElement)
+          || !(viewport instanceof HTMLElement)
+          || preview === null) return { marked: false, available };
+      editor.dataset.resizeIdentity = 'editor-preserved';
+      canvas.dataset.resizeIdentity = 'canvas-preserved';
+      terminal.dataset.resizeIdentity = 'terminal-preserved';
+      canvas.dataset.nodeTransform = node.style.transform;
+      canvas.dataset.viewportTransform = viewport.style.transform;
+      canvas.dataset.sourcePreview = preview.textContent ?? '';
+      const content = document.querySelector('.workspace-content');
+      if (content instanceof HTMLElement) {
+        content.scrollTop = Math.min(24, content.scrollHeight - content.clientHeight);
+        content.dataset.resizeScrollTop = String(content.scrollTop);
+      }
+      return { marked: true, available };
+    })()
+  `) as { marked: boolean; available: Record<string, boolean> };
+  if (!surfaceState.marked) {
+    throw new Error(`Active surfaces unavailable for resize validation: ${JSON.stringify(surfaceState.available)}`);
+  }
+
+  await applyOuterWindowSize(window, 980, 640);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.getAttribute('data-layout') === 'compact'"
+  );
+  await window.webContents.executeJavaScript(`document.querySelector('.inspector-toggle')?.click()`);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('inspector-open') === true"
+  );
+  await window.webContents.executeJavaScript(`document.querySelector('.inspector-toggle')?.click()`);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.classList.contains('inspector-closed') === true"
+  );
+  await window.webContents.executeJavaScript(`document.querySelector('.terminal-toggle')?.click()`);
+  await waitForRendererCondition(window, "document.querySelector('.terminal-panel')?.classList.contains('collapsed') === true");
+  await window.webContents.executeJavaScript(`document.querySelector('.terminal-toggle')?.click()`);
+  await waitForRendererCondition(window, "document.querySelector('.terminal-panel')?.classList.contains('collapsed') === false");
+
+  await applyOuterWindowSize(window, 1920, 1080);
+  await waitForRendererCondition(
+    window,
+    "document.querySelector('.app-shell')?.getAttribute('data-layout') === 'wide'"
+  );
+  const preserved = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const editor = document.querySelector('.compact-editor .monaco-editor');
+      const canvas = document.querySelector('.compact-editor .react-flow');
+      const terminal = document.querySelector('.terminal-panel .xterm');
+      const node = document.querySelector('.compact-editor .react-flow__node');
+      const viewport = document.querySelector('.compact-editor .react-flow__viewport');
+      const preview = document.querySelector('.execution-review pre');
+      const content = document.querySelector('.workspace-content');
+      if (!(editor instanceof HTMLElement)
+          || !(canvas instanceof HTMLElement)
+          || !(terminal instanceof HTMLElement)
+          || !(node instanceof HTMLElement)
+          || !(viewport instanceof HTMLElement)
+          || !(content instanceof HTMLElement)
+          || preview === null) return false;
+      return editor.dataset.resizeIdentity === 'editor-preserved'
+        && canvas.dataset.resizeIdentity === 'canvas-preserved'
+        && terminal.dataset.resizeIdentity === 'terminal-preserved'
+        && canvas.dataset.nodeTransform === node.style.transform
+        && canvas.dataset.viewportTransform === viewport.style.transform
+        && canvas.dataset.sourcePreview === (preview.textContent ?? '')
+        && content.scrollTop === Number(content.dataset.resizeScrollTop)
+        && document.documentElement.scrollWidth === document.documentElement.clientWidth
+        && document.documentElement.scrollHeight === document.documentElement.clientHeight;
+    })()
+  `));
+  if (!preserved) {
+    throw new Error("Live resizing remounted a primary surface or changed editor/canvas/scroll state");
+  }
+  await applyOuterWindowSize(window, 1360, 860);
+  process.stderr.write("[smoke] live responsive resizing preserved Monaco, React Flow, xterm, draft, and scroll state\n");
 }
 
 async function measureInteractiveCanvas(window: BrowserWindow): Promise<void> {
@@ -659,6 +1423,14 @@ function registerIpc(translator: Translator): void {
       process.stderr.write("[smoke] system profile validated\n");
     }
     return validated;
+  });
+
+  ipcMain.handle(DESKTOP_ENVIRONMENT_CHANNEL, async (
+    _event,
+    rawParams: unknown
+  ): Promise<DesktopEnvironmentProfile> => {
+    SystemDetectParamsSchema.parse(rawParams);
+    return DesktopEnvironmentProfileSchema.parse(desktopStartupPlan.profile);
   });
 
   ipcMain.handle(TOOLING_CHANNEL, async (_event, rawParams: unknown): Promise<ToolingProfile> => {
@@ -1155,6 +1927,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   ipcMain.removeHandler(HEALTH_CHANNEL);
   ipcMain.removeHandler(SYSTEM_CHANNEL);
+  ipcMain.removeHandler(DESKTOP_ENVIRONMENT_CHANNEL);
   ipcMain.removeHandler(TOOLING_CHANNEL);
   ipcMain.removeHandler(SHELLCHECK_CHANNEL);
   ipcMain.removeHandler(SHFMT_CHANNEL);

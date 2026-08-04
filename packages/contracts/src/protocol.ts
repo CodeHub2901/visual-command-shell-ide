@@ -105,7 +105,9 @@ export const CancelRequestParamsSchema = z
 export const HealthCheckResultSchema = z
   .object({
     protocolVersion: z.literal(PROTOCOL_VERSION),
-    workerVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
+    workerVersion: z.string().max(64).regex(
+      /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+    ),
     javaVersion: z.string().min(1),
     pid: z.number().int().positive()
   })
@@ -135,6 +137,22 @@ export const SystemProfileSchema = z
     shell: ShellEnvironmentSchema,
     distro: DistroTargetSchema.nullable(),
     pathEntries: z.array(z.string()).max(512)
+  })
+  .strict();
+
+export const DesktopEnvironmentProfileSchema = z
+  .object({
+    platform: z.enum(["linux", "macos", "windows", "other"]),
+    sessionType: z.enum(["wayland", "x11", "unknown"]),
+    desktop: z.string().min(1).max(256).nullable(),
+    virtualization: z.enum(["vmware", "other", "none", "unknown"]),
+    graphicsMode: z.enum(["hardware", "software"]),
+    nativeTransparency: z.boolean(),
+    appliedWorkarounds: z.array(z.enum([
+      "wayland-ozone-auto",
+      "vmware-software-rendering",
+      "environment-software-rendering"
+    ])).max(3)
   })
   .strict();
 
@@ -1221,6 +1239,7 @@ export type HealthCheckResult = z.infer<typeof HealthCheckResultSchema>;
 export type DistroTarget = z.infer<typeof DistroTargetSchema>;
 export type ShellEnvironment = z.infer<typeof ShellEnvironmentSchema>;
 export type SystemProfile = z.infer<typeof SystemProfileSchema>;
+export type DesktopEnvironmentProfile = z.infer<typeof DesktopEnvironmentProfileSchema>;
 export type ToolStatus = z.infer<typeof ToolStatusSchema>;
 export type ToolingProfile = z.infer<typeof ToolingProfileSchema>;
 export type LanguageOpenResult = z.infer<typeof LanguageOpenResultSchema>;

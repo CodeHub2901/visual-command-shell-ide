@@ -48,7 +48,7 @@ import java.io.OutputStream;
 public final class FramedJsonRpcServer {
     private static final String JSON_RPC_VERSION = "2.0";
     private static final String PROTOCOL_VERSION = "1.0";
-    private static final String WORKER_VERSION = "0.1.0";
+    private static final String WORKER_VERSION = "0.1.0-beta.1";
     private static final String CANCEL_REQUEST_METHOD = "v1.request.cancel";
 
     private final InputStream input;
