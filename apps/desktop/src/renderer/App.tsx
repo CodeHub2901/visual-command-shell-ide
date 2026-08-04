@@ -1,11 +1,21 @@
 // SPDX-FileCopyrightText: 2026 Divyang S Mistry
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import type {
   CatalogSearchResult,
   CatalogDiscoveryResult,
   CatalogProbeVersionResult,
+  DesktopEnvironmentProfile,
   AiProposal,
   CommandSpec,
   ExecutionHistoryEntry,
@@ -31,6 +41,20 @@ import { appendProgram } from "./shell-mutations";
 import { mergeBookmarkParameters } from "./bookmark-utils";
 import { AiAssistantView } from "./AiAssistantView";
 import { resolveAppShortcut } from "./app-shortcuts";
+import { WorkspaceIcon } from "./WorkspaceIcon";
+import { PanelIcon } from "./PanelIcon";
+import { PaneResizeHandle } from "./PaneResizeHandle";
+import {
+  clampPaneSizes,
+  desktopLayoutBand,
+  paneSizeBounds,
+  parsePaneSizes,
+  PANE_LAYOUT_STORAGE_KEY,
+  serializePaneSizes,
+  type PaneSizes
+} from "./pane-layout";
+import { workflowProgress, type WorkflowStepState } from "./workflow-progress";
+import { draftSaveState, type DraftSaveState } from "./draft-status";
 import {
   TERMINAL_LAYOUT_SESSION_KEY,
   terminalExpandedFromStorage,
@@ -38,6 +62,13 @@ import {
 } from "./terminal-layout";
 import { criticalExecutionPolicy } from "./execution-policy";
 import { useI18n, type MessageId, type Translator } from "./i18n";
+import { useTheme } from "./theme";
+import type { ThemePreference } from "./theme-preference";
+import {
+  onboardingCompleteFromStorage,
+  ONBOARDING_STORAGE_KEY,
+  ONBOARDING_STORAGE_VALUE
+} from "./onboarding-preference";
 
 const MonacoBashEditor = lazy(async () => ({
   default: (await import("./MonacoBashEditor")).MonacoBashEditor
@@ -54,6 +85,11 @@ type HealthState =
 type SystemState =
   | { status: "checking" }
   | { status: "ready"; result: SystemProfile }
+  | { status: "error"; message: string };
+
+type DesktopEnvironmentState =
+  | { status: "loading" }
+  | { status: "ready"; profile: DesktopEnvironmentProfile }
   | { status: "error"; message: string };
 
 type CatalogState =
@@ -121,10 +157,15 @@ type ExecutionDraft = {
   assessment: RiskAssessment;
 };
 
+function focusAfterLayout(action: () => void): void {
+  window.requestAnimationFrame(() => window.requestAnimationFrame(action));
+}
+
 const workspaces = [
   { id: "catalog", messageId: "workspace.catalog" },
   { id: "visual-builder", messageId: "workspace.visualBuilder" },
   { id: "script-editor", messageId: "workspace.scriptEditor" },
+  { id: "manual", messageId: "workspace.manual" },
   { id: "ai-assistant", messageId: "workspace.aiAssistant" },
   { id: "bookmarks", messageId: "workspace.bookmarks" },
   { id: "history", messageId: "workspace.history" },
@@ -136,8 +177,11 @@ type WorkspaceId = (typeof workspaces)[number]["id"];
 export function App() {
   const { t } = useI18n();
   const [health, setHealth] = useState<HealthState>({ status: "checking" });
+  const [healthRefresh, setHealthRefresh] = useState(0);
   const [system, setSystem] = useState<SystemState>({ status: "checking" });
+  const [desktopEnvironment, setDesktopEnvironment] = useState<DesktopEnvironmentState>({ status: "loading" });
   const [catalog, setCatalog] = useState<CatalogState>({ status: "loading" });
+  const [catalogRefresh, setCatalogRefresh] = useState(0);
   const [discovery, setDiscovery] = useState<DiscoveryState>({ status: "loading" });
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -149,6 +193,13 @@ export function App() {
   const [projectImport, setProjectImport] = useState<ProjectActionState>({ status: "idle" });
   const [executionDraft, setExecutionDraft] = useState<ExecutionDraft | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceId>("catalog");
+  const [onboardingVisible, setOnboardingVisible] = useState(() => {
+    try {
+      return !onboardingCompleteFromStorage(window.localStorage.getItem(ONBOARDING_STORAGE_KEY));
+    } catch {
+      return true;
+    }
+  });
   const [terminalExpanded, setTerminalExpanded] = useState(() => {
     try {
       return terminalExpandedFromStorage(window.sessionStorage.getItem(TERMINAL_LAYOUT_SESSION_KEY));
@@ -156,10 +207,69 @@ export function App() {
       return true;
     }
   });
+  const [viewport, setViewport] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight
+  }));
+  const [paneSizes, setPaneSizes] = useState<PaneSizes>(() => {
+    try {
+      return parsePaneSizes(
+        window.localStorage.getItem(PANE_LAYOUT_STORAGE_KEY),
+        { width: window.innerWidth, height: window.innerHeight }
+      );
+    } catch {
+      return clampPaneSizes(null, { width: window.innerWidth, height: window.innerHeight });
+    }
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1100);
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth >= 1440);
+  const [terminalRunning, setTerminalRunning] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [languageCommands, setLanguageCommands] = useState<CommandSpec[]>([]);
   const searchInput = useRef<HTMLInputElement>(null);
   const workspaceContent = useRef<HTMLDivElement>(null);
+  const appShell = useRef<HTMLElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
+  const inspector = useRef<HTMLElement>(null);
+  const sidebarToggle = useRef<HTMLButtonElement>(null);
+  const inspectorToggle = useRef<HTMLButtonElement>(null);
+  const layoutBand = desktopLayoutBand(viewport.width);
+  const previousLayoutBand = useRef(layoutBand);
+  const paneBounds = paneSizeBounds(viewport);
+
+  const commitPaneSize = (pane: keyof PaneSizes, value: number) => {
+    setPaneSizes((current) => clampPaneSizes({ ...current, [pane]: value }, viewport));
+  };
+
+  const openSidebar = () => {
+    setSidebarOpen(true);
+    focusAfterLayout(() => sidebar.current?.focus());
+  };
+  const closeSidebar = (restoreFocus = false) => {
+    setSidebarOpen(false);
+    if (restoreFocus) focusAfterLayout(() => sidebarToggle.current?.focus());
+  };
+  const openInspector = () => {
+    setInspectorOpen(true);
+    focusAfterLayout(() => inspector.current?.focus());
+  };
+  const closeInspector = (restoreFocus = false) => {
+    setInspectorOpen(false);
+    if (restoreFocus) focusAfterLayout(() => inspectorToggle.current?.focus());
+  };
+
+  useEffect(() => {
+    let active = true;
+    window.commandIde.system.desktopEnvironment().then((profile) => {
+      if (active) setDesktopEnvironment({ status: "ready", profile });
+    }, (error: unknown) => {
+      if (active) setDesktopEnvironment({
+        status: "error",
+        message: errorMessage(error, t("error.desktopEnvironment"))
+      });
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -168,12 +278,19 @@ export function App() {
       if (shortcut === null) return;
       event.preventDefault();
       if (shortcut.kind === "focus-search") {
-        searchInput.current?.focus();
-        searchInput.current?.select();
+        setWorkspace("catalog");
+        setSidebarOpen(true);
+        focusAfterLayout(() => {
+          searchInput.current?.focus();
+          searchInput.current?.select();
+        });
         return;
       }
       if (shortcut.kind === "mode") {
         setMode(shortcut.mode);
+        if (selectedId !== null) {
+          setWorkspace(shortcut.mode === "Guided" ? "visual-builder" : "script-editor");
+        }
         workspaceContent.current?.focus();
         return;
       }
@@ -186,11 +303,12 @@ export function App() {
       setWorkspace(target.id);
       if (target.id === "visual-builder") setMode("Guided");
       if (target.id === "script-editor") setMode("Compact");
+      if (layoutBand === "compact") setSidebarOpen(false);
       workspaceContent.current?.focus();
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
+  }, [layoutBand, selectedId]);
 
   useEffect(() => {
     try {
@@ -202,6 +320,56 @@ export function App() {
       // Storage may be unavailable in a restricted session; in-memory state still works.
     }
   }, [terminalExpanded]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PANE_LAYOUT_STORAGE_KEY, serializePaneSizes(paneSizes));
+    } catch {
+      // Pane resizing remains available when local storage is restricted.
+    }
+  }, [paneSizes]);
+
+  useEffect(() => {
+    let resizeFrame: number | null = null;
+    const handleResize = () => {
+      if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+        const nextViewport = { width: window.innerWidth, height: window.innerHeight };
+        setViewport(nextViewport);
+        setPaneSizes((current) => clampPaneSizes(current, nextViewport));
+      });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousLayoutBand.current === layoutBand) return;
+    previousLayoutBand.current = layoutBand;
+    setSidebarOpen(layoutBand !== "compact");
+    setInspectorOpen(layoutBand === "wide");
+  }, [layoutBand]);
+
+  useEffect(() => {
+    const closeActiveDrawer = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (layoutBand !== "wide" && inspectorOpen) {
+        event.preventDefault();
+        closeInspector(true);
+        return;
+      }
+      if (layoutBand === "compact" && sidebarOpen) {
+        event.preventDefault();
+        closeSidebar(true);
+      }
+    };
+    window.addEventListener("keydown", closeActiveDrawer);
+    return () => window.removeEventListener("keydown", closeActiveDrawer);
+  }, [inspectorOpen, layoutBand, sidebarOpen]);
 
   useEffect(() => {
     let active = true;
@@ -223,7 +391,7 @@ export function App() {
       }
     });
     return () => { active = false; };
-  }, []);
+  }, [healthRefresh]);
 
   useEffect(() => {
     let active = true;
@@ -246,7 +414,7 @@ export function App() {
         setSelectedId((current) =>
           result.commands.some((command) => command.id === current)
             ? current
-            : (result.commands.find((command) => command.id === "ls")?.id ?? result.commands[0]?.id ?? null)
+            : null
         );
       }, (error: unknown) => {
         console.error("Catalog search failed", error);
@@ -257,7 +425,7 @@ export function App() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, catalogRefresh]);
 
   const discoverPath = (refresh: boolean) => {
     setDiscovery({ status: "loading" });
@@ -305,9 +473,35 @@ export function App() {
     return () => { active = false; };
   }, [selected]);
 
+  const commandContext = workspace === "catalog"
+    || workspace === "manual"
+    || workspace === "visual-builder"
+    || workspace === "script-editor";
+
   return (
-    <main className="app-shell">
+    <main
+      className={`app-shell layout-${layoutBand}${sidebarOpen ? " sidebar-open" : " sidebar-closed"}${inspectorOpen ? " inspector-open" : " inspector-closed"}`}
+      data-layout={layoutBand}
+      data-active-workspace={workspace}
+      ref={appShell}
+      style={{
+        "--sidebar-width": `${paneSizes.sidebar}px`,
+        "--inspector-width": `${paneSizes.inspector}px`,
+        "--terminal-height": `${paneSizes.terminal}px`,
+        "--terminal-min-height": `${paneBounds.terminal.min}px`
+      } as CSSProperties}
+    >
       <a className="skip-link" href="#main-workspace">{t("app.skipToWorkspace")}</a>
+      <button
+        className="drawer-scrim"
+        type="button"
+        aria-label={t("app.closePanels")}
+        tabIndex={-1}
+        onClick={() => {
+          if (layoutBand === "compact") closeSidebar();
+          closeInspector();
+        }}
+      />
       <nav className="navigation-rail" aria-label={t("app.primaryWorkspaces")}>
         <div className="brand-mark" aria-label={t("app.name")}>&gt;_</div>
         {workspaces.map((workspaceEntry, index) => {
@@ -317,6 +511,8 @@ export function App() {
             className={workspaceEntry.id === workspace ? "rail-button active" : "rail-button"}
             key={workspaceEntry.id}
             type="button"
+            data-label={workspaceName}
+            data-workspace-id={workspaceEntry.id}
             aria-label={workspaceName}
             aria-current={workspaceEntry.id === workspace ? "page" : undefined}
             aria-keyshortcuts={`Alt+${index + 1}`}
@@ -325,36 +521,90 @@ export function App() {
               setWorkspace(workspaceEntry.id);
               if (workspaceEntry.id === "visual-builder") setMode("Guided");
               if (workspaceEntry.id === "script-editor") setMode("Compact");
+              if (layoutBand === "compact") closeSidebar();
               workspaceContent.current?.focus();
             }}
           >
-            {workspaceName.slice(0, 2).toUpperCase()}
+            <WorkspaceIcon name={workspaceEntry.id} />
           </button>
           );
         })}
       </nav>
 
-      <aside className="command-sidebar" aria-label={t("app.commandCatalog")}>
-        <header>
-          <p className="eyebrow">{t("app.offlineWorkspace")}</p>
-          <h1>{t("app.commandCatalog")}</h1>
+      <aside
+        className="command-sidebar"
+        id="contextual-sidebar"
+        ref={sidebar}
+        aria-label={t("app.commandCatalog")}
+        tabIndex={-1}
+      >
+        <div className="pane-scroll-content">
+        {commandContext ? (
+        <>
+        <header className="sidebar-heading">
+          <div>
+            <p className="eyebrow">{t("app.offlineWorkspace")}</p>
+            <h1>{t("app.commandCatalog")}</h1>
+          </div>
+          <button
+            className="drawer-close"
+            type="button"
+            aria-label={t("app.hideSidebar")}
+            title={t("app.hideSidebar")}
+            onClick={() => closeSidebar(true)}
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
         </header>
         <label className="search-label">
           <span>{t("app.findCommand")}</span>
-          <input
-            ref={searchInput}
-            type="search"
-            aria-keyshortcuts="Control+K Meta+K"
-            placeholder={t("app.searchPlaceholder")}
-            value={query}
-            maxLength={200}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-          />
+          <span className="search-control">
+            <input
+              ref={searchInput}
+              type="search"
+              aria-keyshortcuts="Control+K Meta+K"
+              aria-controls="catalog-results"
+              placeholder={t("app.searchPlaceholder")}
+              value={query}
+              maxLength={200}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  document.querySelector<HTMLButtonElement>("#catalog-results .command-result")?.focus();
+                } else if (event.key === "Escape" && query.length > 0) {
+                  event.stopPropagation();
+                  setQuery("");
+                }
+              }}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+            />
+            {query.length > 0 && (
+              <button
+                type="button"
+                data-clear-catalog-search
+                aria-label={t("catalog.clearSearch")}
+                title={t("catalog.clearSearch")}
+                onClick={() => {
+                  setQuery("");
+                  searchInput.current?.focus();
+                }}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            )}
+          </span>
         </label>
         <CatalogList
           state={catalog}
           selectedId={selectedId}
-          onSelect={(id) => { setLoadedProject(null); setSelectedId(id); }}
+          onRetry={() => setCatalogRefresh((value) => value + 1)}
+          onSelect={(id) => {
+            setExecutionDraft(null);
+            setLoadedProject(null);
+            setSelectedId(id);
+            setWorkspace("manual");
+            if (layoutBand === "compact") closeSidebar();
+          }}
         />
         <PathDiscovery state={discovery} onRefresh={() => discoverPath(true)} />
         <section className="project-import">
@@ -368,10 +618,12 @@ export function App() {
                   setProjectImport({ status: "idle" });
                   return;
                 }
+                setExecutionDraft(null);
                 setLoadedProject(result.project);
                 const firstCommand = findCommand(result.project.program);
                 setSelectedId(firstCommand?.commandId ?? "ls");
                 setMode(firstCommand === undefined ? "Compact" : "Guided");
+                setWorkspace(firstCommand === undefined ? "script-editor" : "visual-builder");
                 setProjectImport({
                   status: "success",
                   message: t("project.imported", { fileName: result.fileName })
@@ -389,38 +641,149 @@ export function App() {
         </section>
         <RecentProjects
           state={projects}
+          onRetry={() => setProjectRefresh((value) => value + 1)}
           onOpen={(projectId) => {
             void window.commandIde.projects.get(projectId).then((result) => {
               if (result.project === null) return;
+              setExecutionDraft(null);
               setLoadedProject(result.project);
               const firstCommand = findCommand(result.project.program);
               setSelectedId(firstCommand?.commandId ?? null);
               setMode("Guided");
+              setWorkspace("visual-builder");
             }, (error: unknown) => {
               setProjects({ status: "error", message: errorMessage(error, t("error.projectOpen")) });
             });
           }}
         />
+        </>
+        ) : (
+          <WorkspaceContextSidebar
+            workspace={workspace}
+            onFocusWorkspace={() => workspaceContent.current?.focus()}
+          />
+        )}
+        </div>
+        <PaneResizeHandle
+          label={t("app.resizeSidebar")}
+          orientation="vertical"
+          value={paneSizes.sidebar}
+          min={paneBounds.sidebar.min}
+          max={paneBounds.sidebar.max}
+          cssVariable="--sidebar-width"
+          rootRef={appShell}
+          onCommit={(value) => commitPaneSize("sidebar", value)}
+        />
       </aside>
 
       <section className={`workspace${terminalExpanded ? "" : " terminal-collapsed"}`}>
         <header className="workspace-tabs">
-          <h2 className="tab active" id="workspace-heading">
-            {t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.catalog")}
-          </h2>
-          <div className="mode-switch" role="group" aria-label={t("app.interfaceMode")}>
-            {(["Guided", "Compact"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={mode === value ? "selected" : ""}
-                aria-pressed={mode === value}
-                aria-keyshortcuts={value === "Guided" ? "Alt+G" : "Alt+C"}
-                onClick={() => setMode(value)}
-              >
-                {value === "Guided" ? t("mode.guided") : t("mode.compact")}
-              </button>
-            ))}
+          <div className="workspace-title">
+            <h2
+              className="tab active"
+              id="workspace-heading"
+              title={t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.catalog")}
+            >
+              {t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.catalog")}
+            </h2>
+            <span className={`mode-context ${mode.toLowerCase()}`} id="mode-context">
+              {mode === "Guided" ? t("mode.guidedSummary") : t("mode.compactSummary")}
+            </span>
+          </div>
+          <div className="workspace-toolbar">
+            <button
+              className="panel-toggle sidebar-toggle"
+              ref={sidebarToggle}
+              type="button"
+              aria-label={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
+              aria-controls="contextual-sidebar"
+              aria-expanded={sidebarOpen}
+              title={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
+              onClick={() => sidebarOpen ? closeSidebar() : openSidebar()}
+            >
+              <PanelIcon side="left" />
+            </button>
+            <div
+              className="mode-switch"
+              role="group"
+              aria-label={t("app.interfaceMode")}
+              aria-describedby="mode-context"
+            >
+              {(["Guided", "Compact"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={mode === value ? "selected" : ""}
+                  aria-pressed={mode === value}
+                  aria-keyshortcuts={value === "Guided" ? "Alt+G" : "Alt+C"}
+                  title={value === "Guided" ? t("mode.guidedDescription") : t("mode.compactDescription")}
+                  onClick={() => {
+                    setMode(value);
+                    if (selected !== null) {
+                      setWorkspace(value === "Guided" ? "visual-builder" : "script-editor");
+                    }
+                  }}
+                >
+                  {value === "Guided" ? t("mode.guided") : t("mode.compact")}
+                </button>
+              ))}
+            </div>
+            {(workspace === "visual-builder" || workspace === "script-editor") && (
+              <div className="primary-actions" aria-label={t("app.primaryActions")}>
+                <button
+                  type="button"
+                  aria-label={t("app.save")}
+                  title={t("app.save")}
+                  disabled={executionDraft === null}
+                  onClick={() => {
+                    const save = document.querySelector<HTMLButtonElement>("[data-primary-project-save]");
+                    save?.click();
+                  }}
+                >
+                  <PrimaryActionIcon name="save" />
+                  <span>{t("app.save")}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={t("app.reviewRun")}
+                  title={t("app.reviewRun")}
+                  disabled={executionDraft === null}
+                  onClick={() => {
+                    setTerminalExpanded(true);
+                    focusAfterLayout(() => {
+                      document.querySelector<HTMLButtonElement>("[data-primary-run]")?.focus();
+                    });
+                  }}
+                >
+                  <PrimaryActionIcon name="review-run" />
+                  <span>{t("app.reviewRun")}</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={t("app.cancelExecution")}
+                  title={t("app.cancelExecution")}
+                  disabled={!terminalRunning}
+                  onClick={() => {
+                    document.querySelector<HTMLButtonElement>("[data-primary-cancel]")?.click();
+                  }}
+                >
+                  <PrimaryActionIcon name="cancel" />
+                  <span>{t("common.cancel")}</span>
+                </button>
+              </div>
+            )}
+            <button
+              className="panel-toggle inspector-toggle"
+              ref={inspectorToggle}
+              type="button"
+              aria-label={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
+              aria-controls="command-inspector"
+              aria-expanded={inspectorOpen}
+              title={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
+              onClick={() => inspectorOpen ? closeInspector() : openInspector()}
+            >
+              <PanelIcon side="right" />
+            </button>
           </div>
         </header>
 
@@ -432,7 +795,39 @@ export function App() {
           aria-labelledby="workspace-heading"
           tabIndex={-1}
         >
-          {workspace === "history" ? (
+          <SessionContext
+            system={system}
+            selectedCommand={selected}
+            project={loadedProject}
+            draft={executionDraft}
+          />
+          {(workspace === "catalog" || workspace === "visual-builder" || workspace === "script-editor") && (
+            <WorkflowGuide hasCommand={selected !== null} hasValidatedDraft={executionDraft !== null} />
+          )}
+          {workspace === "catalog" ? (
+            <CatalogWelcome
+              catalog={catalog}
+              health={health}
+              system={system}
+              onboardingVisible={onboardingVisible}
+              onChooseMode={(nextMode) => {
+                setMode(nextMode);
+                setOnboardingVisible(false);
+                try {
+                  window.localStorage.setItem(ONBOARDING_STORAGE_KEY, ONBOARDING_STORAGE_VALUE);
+                } catch {
+                  // First-run guidance can complete in memory when storage is unavailable.
+                }
+                setSidebarOpen(true);
+                focusAfterLayout(() => searchInput.current?.focus());
+              }}
+              onRetryHealth={() => {
+                setHealth({ status: "checking" });
+                setSystem({ status: "checking" });
+                setHealthRefresh((value) => value + 1);
+              }}
+            />
+          ) : workspace === "history" ? (
             <HistoryView refresh={historyRefresh} />
           ) : workspace === "bookmarks" ? (
             <BookmarksView
@@ -505,13 +900,41 @@ export function App() {
               }}
             />
           ) : workspace === "settings" ? (
-            <SettingsView />
+            <SettingsView
+              desktopEnvironment={desktopEnvironment}
+              onShowOnboarding={() => {
+                try {
+                  window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+                } catch {
+                  // The walkthrough remains available for this session.
+                }
+                setOnboardingVisible(true);
+                setWorkspace("catalog");
+                setSidebarOpen(true);
+                focusAfterLayout(() => workspaceContent.current?.focus());
+              }}
+            />
           ) : selected === null ? (
-            <CatalogWelcome catalog={catalog} health={health} system={system} />
+            <CatalogWelcome
+              catalog={catalog}
+              health={health}
+              system={system}
+              onboardingVisible={false}
+              onChooseMode={setMode}
+              onRetryHealth={() => {
+                setHealth({ status: "checking" });
+                setSystem({ status: "checking" });
+                setHealthRefresh((value) => value + 1);
+              }}
+            />
           ) : (
             <CommandManual
               command={selected}
-              mode={mode}
+              view={workspace === "visual-builder"
+                ? "builder"
+                : workspace === "script-editor"
+                  ? "editor"
+                  : "manual"}
               state={manual}
               system={system}
               catalogVersion={catalog.status === "ready" ? catalog.result.catalogVersion : "1.2.0"}
@@ -532,13 +955,48 @@ export function App() {
           draft={executionDraft}
           mode={mode}
           expanded={terminalExpanded}
+          paneRootRef={appShell}
+          height={paneSizes.terminal}
+          minimumHeight={paneBounds.terminal.min}
+          maximumHeight={paneBounds.terminal.max}
+          onHeightChange={(value) => commitPaneSize("terminal", value)}
           onToggle={() => setTerminalExpanded((value) => !value)}
+          onRunningChange={setTerminalRunning}
           onExecutionFinished={() => setHistoryRefresh((value) => value + 1)}
         />
       </section>
 
-      <aside className="inspector" aria-label={t("app.commandInspector")}>
-        <p className="eyebrow">{t("app.inspector")}</p>
+      <aside
+        className="inspector"
+        id="command-inspector"
+        ref={inspector}
+        aria-label={t("app.commandInspector")}
+        tabIndex={-1}
+      >
+        <PaneResizeHandle
+          label={t("app.resizeInspector")}
+          orientation="vertical"
+          invert
+          value={paneSizes.inspector}
+          min={paneBounds.inspector.min}
+          max={paneBounds.inspector.max}
+          cssVariable="--inspector-width"
+          rootRef={appShell}
+          onCommit={(value) => commitPaneSize("inspector", value)}
+        />
+        <div className="pane-scroll-content">
+        <div className="inspector-heading">
+          <p className="eyebrow">{t("app.inspector")}</p>
+          <button
+            className="drawer-close"
+            type="button"
+            aria-label={t("app.hideInspector")}
+            title={t("app.hideInspector")}
+            onClick={() => closeInspector(true)}
+          >
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
         <h2>{selected?.displayName ?? t("app.environment")}</h2>
         {selected === null ? (
           <EnvironmentDetails health={health} system={system} mode={mode} />
@@ -560,8 +1018,82 @@ export function App() {
             <VersionProbe key={selected.id} command={selected} />
           </>
         )}
+        </div>
       </aside>
     </main>
+  );
+}
+
+function PrimaryActionIcon({ name }: { name: "save" | "review-run" | "cancel" }) {
+  if (name === "save") {
+    return (
+      <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M3.5 3.5h10l3 3v10h-13zM6 3.5v5h7v-5M6 16.5v-5h8v5" />
+      </svg>
+    );
+  }
+  if (name === "review-run") {
+    return (
+      <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
+        <path d="m3.5 10 2.5 2.5 4-5M12 6.5l5 3.5-5 3.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="5" y="5" width="10" height="10" rx="1.5" />
+    </svg>
+  );
+}
+
+function WorkspaceContextSidebar({
+  workspace,
+  onFocusWorkspace
+}: {
+  workspace: WorkspaceId;
+  onFocusWorkspace: () => void;
+}) {
+  const { t } = useI18n();
+  const context = workspace === "ai-assistant"
+    ? {
+        eyebrow: t("contextSidebar.ai.eyebrow"),
+        title: t("contextSidebar.ai.title"),
+        description: t("contextSidebar.ai.description"),
+        items: [t("contextSidebar.ai.provider"), t("contextSidebar.ai.review"), t("contextSidebar.ai.execute")]
+      }
+    : workspace === "bookmarks"
+      ? {
+          eyebrow: t("contextSidebar.bookmarks.eyebrow"),
+          title: t("contextSidebar.bookmarks.title"),
+          description: t("contextSidebar.bookmarks.description"),
+          items: [t("contextSidebar.bookmarks.structured"), t("contextSidebar.bookmarks.parameters"), t("contextSidebar.bookmarks.open")]
+        }
+      : workspace === "history"
+        ? {
+            eyebrow: t("contextSidebar.history.eyebrow"),
+            title: t("contextSidebar.history.title"),
+            description: t("contextSidebar.history.description"),
+            items: [t("contextSidebar.history.local"), t("contextSidebar.history.redacted"), t("contextSidebar.history.evidence")]
+          }
+        : {
+            eyebrow: t("contextSidebar.settings.eyebrow"),
+            title: t("contextSidebar.settings.title"),
+            description: t("contextSidebar.settings.description"),
+            items: [t("contextSidebar.settings.appearance"), t("contextSidebar.settings.tools"), t("contextSidebar.settings.legal")]
+          };
+
+  return (
+    <section className="workspace-context-sidebar">
+      <header className="sidebar-heading">
+        <div>
+          <p className="eyebrow">{context.eyebrow}</p>
+          <h1>{context.title}</h1>
+        </div>
+      </header>
+      <p>{context.description}</p>
+      <ul>{context.items.map((item) => <li key={item}>{item}</li>)}</ul>
+      <button type="button" onClick={onFocusWorkspace}>{t("contextSidebar.focusWorkspace")}</button>
+    </section>
   );
 }
 
@@ -656,24 +1188,37 @@ function VersionProbe({ command }: { command: CommandSpec }) {
   );
 }
 
-function CatalogList({ state, selectedId, onSelect }: {
+function CatalogList({ state, selectedId, onSelect, onRetry }: {
   state: CatalogState;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onRetry: () => void;
 }) {
   const { formatNumber, plural, t } = useI18n();
   if (state.status === "loading") return <div className="empty-state">{t("catalog.searching")}</div>;
-  if (state.status === "error") return <div className="empty-state error-text">{state.message}</div>;
+  if (state.status === "error") return (
+    <div className="empty-state recovery-state error-text" role="alert">
+      <span>{state.message}</span>
+      <button type="button" onClick={onRetry}>{t("catalog.retry")}</button>
+    </div>
+  );
   if (state.result.commands.length === 0) return <div className="empty-state">{t("catalog.noMatches")}</div>;
   return (
-    <div className="catalog-results" aria-live="polite">
+    <div className="catalog-results" id="catalog-results" aria-live="polite">
       <span className="result-count">{plural(
         { one: "catalog.count.one", other: "catalog.count.other" },
         state.result.total,
         { count: formatNumber(state.result.total) }
       )}</span>
       {state.result.commands.map((command) => (
-        <button key={command.id} type="button" className={selectedId === command.id ? "command-result selected" : "command-result"} onClick={() => onSelect(command.id)}>
+        <button
+          key={command.id}
+          type="button"
+          className={selectedId === command.id ? "command-result selected" : "command-result"}
+          data-command-id={command.id}
+          title={`${command.displayName}: ${command.summary}`}
+          onClick={() => onSelect(command.id)}
+        >
           <span className={`status-dot ${command.availability}`} aria-hidden="true" />
           <span><strong>{command.displayName}</strong><small>{command.summary}</small></span>
         </button>
@@ -682,13 +1227,20 @@ function CatalogList({ state, selectedId, onSelect }: {
   );
 }
 
-function RecentProjects({ state, onOpen }: {
+function RecentProjects({ state, onOpen, onRetry }: {
   state: ProjectListState;
   onOpen: (projectId: string) => void;
+  onRetry: () => void;
 }) {
   const { formatDateTime, t } = useI18n();
   if (state.status === "loading") return <section className="recent-projects"><h2>{t("project.recent")}</h2><span>{t("common.loading")}</span></section>;
-  if (state.status === "error") return <section className="recent-projects"><h2>{t("project.recent")}</h2><span className="error-text">{state.message}</span></section>;
+  if (state.status === "error") return (
+    <section className="recent-projects recovery-state" role="alert">
+      <h2>{t("project.recent")}</h2>
+      <span className="error-text">{state.message}</span>
+      <button type="button" onClick={onRetry}>{t("project.retryList")}</button>
+    </section>
+  );
   if (state.projects.length === 0) return <section className="recent-projects"><h2>{t("project.recent")}</h2><span>{t("project.none")}</span></section>;
   return (
     <section className="recent-projects">
@@ -705,7 +1257,7 @@ function RecentProjects({ state, onOpen }: {
 
 function CommandManual({
   command,
-  mode,
+  view,
   state,
   system,
   catalogVersion,
@@ -715,7 +1267,7 @@ function CommandManual({
   onExecutionDraftChange
 }: {
   command: CommandSpec;
-  mode: "Guided" | "Compact";
+  view: "builder" | "editor" | "manual";
   state: ManualState;
   system: SystemState;
   catalogVersion: string;
@@ -777,7 +1329,7 @@ function CommandManual({
       })}</p>
       <h2>{command.displayName}</h2>
       <p className="lede">{command.summary}</p>
-      {mode === "Guided" && (
+      {view === "builder" && (
         <GuidedCommandBuilder
           key={`${command.id}:${initialProject?.projectId ?? "new"}:${initialProject?.updatedAt ?? ""}`}
           command={command}
@@ -789,7 +1341,7 @@ function CommandManual({
           onExecutionDraftChange={(program, assessment) => onExecutionDraftChange({ program, assessment })}
         />
       )}
-      {mode === "Compact" && (
+      {view === "editor" && (
         <CompactScriptEditor
           key={`${command.id}:${initialProject?.projectId ?? "new"}:${initialProject?.updatedAt ?? ""}`}
           command={command}
@@ -802,6 +1354,8 @@ function CommandManual({
           onExecutionDraftChange={(program, assessment) => onExecutionDraftChange({ program, assessment })}
         />
       )}
+      {view !== "manual" && (
+      <>
       <section className="visual-catalog-actions" aria-label={t("manual.addCatalogProgram")}>
         <label>
           {t("manual.addCatalogExample")}
@@ -862,6 +1416,10 @@ function CommandManual({
               : t("project.waitingDraft")}
         onProjectSaved={onProjectSaved}
       />
+      </>
+      )}
+      {view === "manual" && (
+      <div className="manual-documentation">
       {state.status === "loading" && <p className="manual-status">{t("manual.checkingInstalled")}</p>}
       {state.status === "error" && <p className="manual-status error-text">{t("manual.nativeUnavailable", {
         message: state.message
@@ -890,14 +1448,12 @@ function CommandManual({
           {command.options.map((option) => (
             <div className="option-row" key={option.id}>
               <code>{option.flags.join(", ")}{option.valueName === null ? "" : ` ${option.valueName}`}</code>
-              {mode === "Guided" && (
-                <span>
-                  {option.description}
-                  {option.conflictsWith.length > 0
-                    ? t("manual.conflicts", { options: option.conflictsWith.join(", ") })
-                    : ""}
-                </span>
-              )}
+              <span>
+                {option.description}
+                {option.conflictsWith.length > 0
+                  ? t("manual.conflicts", { options: option.conflictsWith.join(", ") })
+                  : ""}
+              </span>
             </div>
           ))}
         </div>
@@ -923,6 +1479,8 @@ function CommandManual({
             })}</span>
           </div>
         </section>
+      )}
+      </div>
       )}
     </article>
   );
@@ -1234,7 +1792,12 @@ function ProjectActions({ project, unavailableMessage, onProjectSaved }: {
   return (
     <section className="project-actions" aria-label={t("project.actions")}>
       <div className="project-action-buttons">
-        <button type="button" disabled={project === null || state.status === "working"} onClick={() => void save()}>
+        <button
+          type="button"
+          data-primary-project-save
+          disabled={project === null || state.status === "working"}
+          onClick={() => void save()}
+        >
           {t("project.saveLocally")}
         </button>
         <button
@@ -1417,11 +1980,29 @@ function CompactScriptEditor({
   );
 }
 
-function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }: {
+function TerminalPanel({
+  draft,
+  mode,
+  expanded,
+  paneRootRef,
+  height,
+  minimumHeight,
+  maximumHeight,
+  onHeightChange,
+  onToggle,
+  onRunningChange,
+  onExecutionFinished
+}: {
   draft: ExecutionDraft | null;
   mode: "Guided" | "Compact";
   expanded: boolean;
+  paneRootRef: RefObject<HTMLElement | null>;
+  height: number;
+  minimumHeight: number;
+  maximumHeight: number;
+  onHeightChange: (value: number) => void;
   onToggle: () => void;
+  onRunningChange: (running: boolean) => void;
   onExecutionFinished: () => void;
 }) {
   const { t } = useI18n();
@@ -1440,6 +2021,10 @@ function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }:
   useEffect(() => {
     setTypedConfirmation("");
   }, [draft?.assessment.reviewHash]);
+
+  useEffect(() => {
+    onRunningChange(state.status === "starting" || state.status === "running");
+  }, [onRunningChange, state.status]);
 
   const risk = draft?.assessment.level ?? null;
   const criticalPolicy = criticalExecutionPolicy(
@@ -1493,6 +2078,19 @@ function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }:
 
   return (
     <section className={`terminal-panel${expanded ? "" : " collapsed"}`} aria-label={t("terminal.label")}>
+      {expanded && (
+        <PaneResizeHandle
+          label={t("app.resizeTerminal")}
+          orientation="horizontal"
+          invert
+          value={height}
+          min={minimumHeight}
+          max={maximumHeight}
+          cssVariable="--terminal-height"
+          rootRef={paneRootRef}
+          onCommit={onHeightChange}
+        />
+      )}
       <header>
         <button
           className="terminal-toggle"
@@ -1523,6 +2121,7 @@ function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }:
             </button>
             <button
               type="button"
+              data-primary-run
               onClick={run}
               disabled={draft === null || directory === null || running || criticalBlocked || !criticalReady}
             >
@@ -1534,7 +2133,14 @@ function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }:
                     ? t("terminal.runCritical")
                     : t("terminal.confirmRun")}
             </button>
-            <button type="button" onClick={cancel} disabled={state.status !== "running"}>{t("common.cancel")}</button>
+            <button
+              type="button"
+              data-primary-cancel
+              onClick={cancel}
+              disabled={state.status !== "running"}
+            >
+              {t("common.cancel")}
+            </button>
           </div>
           {draft !== null && (
             <details open={risk === "high" || risk === "critical"}>
@@ -1586,6 +2192,7 @@ function TerminalPanel({ draft, mode, expanded, onToggle, onExecutionFinished }:
 function HistoryView({ refresh }: { refresh: number }) {
   const { formatDateTime, t } = useI18n();
   const [state, setState] = useState<HistoryState>({ status: "loading" });
+  const [manualRefresh, setManualRefresh] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -1596,7 +2203,7 @@ function HistoryView({ refresh }: { refresh: number }) {
       if (active) setState({ status: "error", message: errorMessage(error, t("error.historyRetrieval")) });
     });
     return () => { active = false; };
-  }, [refresh]);
+  }, [refresh, manualRefresh]);
 
   return (
     <article className="history-view">
@@ -1604,7 +2211,14 @@ function HistoryView({ refresh }: { refresh: number }) {
       <h2>{t("history.title")}</h2>
       <p className="lede">{t("history.description")}</p>
       {state.status === "loading" && <p>{t("history.loading")}</p>}
-      {state.status === "error" && <p className="error-text" role="alert">{state.message}</p>}
+      {state.status === "error" && (
+        <div className="inline-recovery recovery-state" role="alert">
+          <span className="error-text">{state.message}</span>
+          <button type="button" onClick={() => setManualRefresh((value) => value + 1)}>
+            {t("history.retry")}
+          </button>
+        </div>
+      )}
       {state.status === "ready" && state.entries.length === 0 && <p>{t("history.empty")}</p>}
       {state.status === "ready" && state.entries.length > 0 && (
         <div className="history-list">
@@ -1709,7 +2323,14 @@ function BookmarksView({ draft, parameters, onUse }: {
         )}
       </section>
       {state.status === "loading" && <p>{t("bookmarks.loading")}</p>}
-      {state.status === "error" && <p className="error-text" role="alert">{state.message}</p>}
+      {state.status === "error" && (
+        <div className="inline-recovery recovery-state" role="alert">
+          <span className="error-text">{state.message}</span>
+          <button type="button" onClick={() => setRefresh((value) => value + 1)}>
+            {t("bookmarks.retry")}
+          </button>
+        </div>
+      )}
       {state.status === "ready" && state.bookmarks.length === 0 && <p>{t("bookmarks.empty")}</p>}
       {state.status === "ready" && state.bookmarks.length > 0 && (
         <div className="bookmark-list">
@@ -1766,8 +2387,12 @@ function BookmarksView({ draft, parameters, onUse }: {
   );
 }
 
-function SettingsView() {
+function SettingsView({ desktopEnvironment, onShowOnboarding }: {
+  desktopEnvironment: DesktopEnvironmentState;
+  onShowOnboarding: () => void;
+}) {
   const { t } = useI18n();
+  const { preference, resolvedTheme, setPreference } = useTheme();
   const [state, setState] = useState<ToolingState>({ status: "loading" });
   const [refresh, setRefresh] = useState(0);
 
@@ -1787,6 +2412,75 @@ function SettingsView() {
       <p className="eyebrow">{t("settings.eyebrow")}</p>
       <h2>{t("settings.title")}</h2>
       <p className="lede">{t("settings.description")}</p>
+      <section className="appearance-panel" aria-labelledby="appearance-panel-title">
+        <div>
+          <h3 id="appearance-panel-title">{t("settings.appearance.title")}</h3>
+          <p>{t("settings.appearance.description")}</p>
+        </div>
+        <div className="theme-picker" role="radiogroup" aria-label={t("settings.appearance.themeLabel")}>
+          {(["system", "light", "dark"] as const satisfies readonly ThemePreference[]).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={preference === option ? "selected" : ""}
+              role="radio"
+              aria-checked={preference === option}
+              data-theme-option={option}
+              onClick={() => setPreference(option)}
+            >
+              <span className={`theme-swatch ${option}`} aria-hidden="true" />
+              {t(`settings.appearance.${option}`)}
+            </button>
+          ))}
+        </div>
+        <p className="appearance-status" role="status">
+          {t("settings.appearance.active", { theme: t(`settings.appearance.${resolvedTheme}`) })}
+        </p>
+        <small>{t("settings.appearance.local")}</small>
+      </section>
+      <section className="desktop-environment-panel" aria-labelledby="desktop-environment-title">
+        <div>
+          <h3 id="desktop-environment-title">{t("settings.linux.title")}</h3>
+          <p>{t("settings.linux.description")}</p>
+        </div>
+        {desktopEnvironment.status === "loading" && <p>{t("common.loading")}</p>}
+        {desktopEnvironment.status === "error" && (
+          <p className="error-text" role="alert">{desktopEnvironment.message}</p>
+        )}
+        {desktopEnvironment.status === "ready" && (
+          <dl>
+            <dt>{t("settings.linux.platform")}</dt>
+            <dd>{desktopEnvironment.profile.platform}</dd>
+            <dt>{t("settings.linux.session")}</dt>
+            <dd>{desktopEnvironment.profile.sessionType}</dd>
+            <dt>{t("settings.linux.desktop")}</dt>
+            <dd title={desktopEnvironment.profile.desktop ?? undefined}>
+              {desktopEnvironment.profile.desktop ?? t("common.none")}
+            </dd>
+            <dt>{t("settings.linux.virtualization")}</dt>
+            <dd>{desktopEnvironment.profile.virtualization}</dd>
+            <dt>{t("settings.linux.graphics")}</dt>
+            <dd>{desktopEnvironment.profile.graphicsMode}</dd>
+            <dt>{t("settings.linux.transparency")}</dt>
+            <dd>{desktopEnvironment.profile.nativeTransparency ? t("common.yes") : t("common.no")}</dd>
+          </dl>
+        )}
+        {desktopEnvironment.status === "ready" && desktopEnvironment.profile.appliedWorkarounds.length > 0 && (
+          <p className="startup-workarounds">
+            {t("settings.linux.workarounds", {
+              values: desktopEnvironment.profile.appliedWorkarounds.join(", ")
+            })}
+          </p>
+        )}
+        <small>{t("settings.linux.help")}</small>
+      </section>
+      <section className="onboarding-settings-panel" aria-labelledby="onboarding-settings-title">
+        <div>
+          <h3 id="onboarding-settings-title">{t("settings.onboarding.title")}</h3>
+          <p>{t("settings.onboarding.description")}</p>
+        </div>
+        <button type="button" onClick={onShowOnboarding}>{t("settings.onboarding.show")}</button>
+      </section>
       <button type="button" onClick={() => setRefresh((value) => value + 1)}>
         {t("settings.refreshTools")}
       </button>
@@ -1826,14 +2520,127 @@ function SettingsView() {
   );
 }
 
-function CatalogWelcome({ catalog, health, system }: { catalog: CatalogState; health: HealthState; system: SystemState }) {
+function WorkflowGuide({ hasCommand, hasValidatedDraft }: {
+  hasCommand: boolean;
+  hasValidatedDraft: boolean;
+}) {
+  const { t } = useI18n();
+  const states = workflowProgress(hasCommand, hasValidatedDraft);
+  const steps = [
+    { title: "workflow.choose.title", description: "workflow.choose.description" },
+    { title: "workflow.build.title", description: "workflow.build.description" },
+    { title: "workflow.review.title", description: "workflow.review.description" },
+    { title: "workflow.run.title", description: "workflow.run.description" }
+  ] as const satisfies ReadonlyArray<{ title: MessageId; description: MessageId }>;
+  return (
+    <section className="workflow-guide" aria-label={t("workflow.label")}>
+      <header>
+        <span>{t("workflow.label")}</span>
+        <small>{t("workflow.offline")}</small>
+      </header>
+      <ol>
+        {steps.map((step, index) => {
+          const state: WorkflowStepState = states[index] ?? "upcoming";
+          return (
+            <li className={state} key={step.title}>
+              <span className="workflow-step-number" aria-hidden="true">{state === "complete" ? "✓" : index + 1}</span>
+              <span>
+                <strong>{t(step.title)}</strong>
+                <small>{t(step.description)}</small>
+              </span>
+              <span className="workflow-step-state">
+                {t(state === "complete"
+                  ? "workflow.state.complete"
+                  : state === "active"
+                    ? "workflow.state.current"
+                    : "workflow.state.next")}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function SessionContext({ system, selectedCommand, project, draft }: {
+  system: SystemState;
+  selectedCommand: CommandSpec | null;
+  project: ScriptProject | null;
+  draft: ExecutionDraft | null;
+}) {
+  const { t } = useI18n();
+  const saveState: DraftSaveState = draftSaveState(project?.program ?? null, draft?.program ?? null);
+  const target = system.status === "ready"
+    ? [
+        system.result.distro?.prettyName ?? system.result.operatingSystem,
+        system.result.architecture,
+        system.result.shell.dialect
+      ].filter((value) => value !== null && value !== undefined && value !== "").join(" · ")
+    : system.status === "error"
+      ? t("context.targetUnavailable")
+      : t("context.targetDetecting");
+  const projectLabel = project?.name
+    ?? (selectedCommand === null ? t("context.noSelection") : t("context.newCommand", {
+      name: selectedCommand.displayName
+    }));
+  const saveStateMessage: MessageId = saveState === "none"
+    ? "context.draft.none"
+    : saveState === "unsaved"
+      ? "context.draft.unsaved"
+      : saveState === "changed"
+        ? "context.draft.changed"
+        : "context.draft.saved";
+  return (
+    <section className="session-context" aria-label={t("context.label")} aria-live="polite">
+      <span><strong>{t("context.target")}</strong>{target}</span>
+      <span><strong>{t("context.project")}</strong>{projectLabel}</span>
+      <span className={`draft-state ${saveState}`}><strong>{t("context.draft")}</strong>{t(saveStateMessage)}</span>
+      <span className={`context-risk ${draft?.assessment.level ?? "none"}`}>
+        <strong>{t("context.risk")}</strong>
+        {draft === null ? t("common.none") : t("common.risk", { level: draft.assessment.level })}
+      </span>
+      <span className="local-only">{t("context.localOnly")}</span>
+    </section>
+  );
+}
+
+function CatalogWelcome({ catalog, health, system, onboardingVisible, onChooseMode, onRetryHealth }: {
+  catalog: CatalogState;
+  health: HealthState;
+  system: SystemState;
+  onboardingVisible: boolean;
+  onChooseMode: (mode: "Guided" | "Compact") => void;
+  onRetryHealth: () => void;
+}) {
   const { t } = useI18n();
   return (
     <>
       <p className="eyebrow">{t("welcome.eyebrow")}</p>
       <h2>{catalog.status === "loading" ? t("welcome.loadingCatalog") : t("welcome.chooseCommand")}</h2>
       <p className="lede">{t("welcome.description")}</p>
-      <HealthCard state={health} system={system} />
+      {onboardingVisible && (
+        <section className="onboarding-panel" aria-labelledby="onboarding-title">
+          <p className="eyebrow">{t("onboarding.eyebrow")}</p>
+          <h3 id="onboarding-title">{t("onboarding.title")}</h3>
+          <p>{t("onboarding.description")}</p>
+          <ol>
+            <li>{t("onboarding.step.search")}</li>
+            <li>{t("onboarding.step.build")}</li>
+            <li>{t("onboarding.step.review")}</li>
+          </ol>
+          <p className="onboarding-privacy">{t("onboarding.privacy")}</p>
+          <div className="onboarding-actions">
+            <button type="button" autoFocus onClick={() => onChooseMode("Guided")}>
+              {t("onboarding.guided")}
+            </button>
+            <button type="button" onClick={() => onChooseMode("Compact")}>
+              {t("onboarding.compact")}
+            </button>
+          </div>
+        </section>
+      )}
+      <HealthCard state={health} system={system} onRetry={onRetryHealth} />
     </>
   );
 }
@@ -1851,10 +2658,21 @@ function EnvironmentDetails({ health, system, mode }: { health: HealthState; sys
   );
 }
 
-function HealthCard({ state, system }: { state: HealthState; system: SystemState }) {
+function HealthCard({ state, system, onRetry }: {
+  state: HealthState;
+  system: SystemState;
+  onRetry: () => void;
+}) {
   const { t } = useI18n();
   if (state.status === "checking") return <section className="health-card checking">{t("health.checking")}</section>;
-  if (state.status === "error") return <section className="health-card error" role="alert"><strong>{t("error.workerUnavailable")}</strong><span>{state.message}</span></section>;
+  if (state.status === "error") return (
+    <section className="health-card error" role="alert">
+      <strong>{t("error.workerUnavailable")}</strong>
+      <span>{state.message}</span>
+      <span>{t("health.workerRecovery")}</span>
+      <button type="button" onClick={onRetry}>{t("health.retryWorker")}</button>
+    </section>
+  );
   return (
     <section className="health-card ready">
       <strong>{t("health.ready")}</strong>

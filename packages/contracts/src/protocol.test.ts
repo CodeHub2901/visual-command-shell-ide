@@ -12,6 +12,7 @@ import {
   CatalogDiscoveryResultSchema,
   CatalogProbeVersionResultSchema,
   CommandOptionSchema,
+  DesktopEnvironmentProfileSchema,
   SystemProfileSchema,
   ToolingProfileSchema,
   LanguageOpenResultSchema,
@@ -283,6 +284,27 @@ describe("protocol contracts", () => {
         pathEntries: ["/usr/local/bin", "/usr/bin"]
       }).distro?.supported
     ).toBe(true);
+  });
+
+  it("validates bounded desktop startup diagnostics", () => {
+    expect(DesktopEnvironmentProfileSchema.parse({
+      platform: "linux",
+      sessionType: "wayland",
+      desktop: "GNOME",
+      virtualization: "vmware",
+      graphicsMode: "software",
+      nativeTransparency: false,
+      appliedWorkarounds: ["wayland-ozone-auto", "vmware-software-rendering"]
+    }).appliedWorkarounds).toHaveLength(2);
+    expect(() => DesktopEnvironmentProfileSchema.parse({
+      platform: "linux",
+      sessionType: "wayland",
+      desktop: "GNOME",
+      virtualization: "vmware",
+      graphicsMode: "software",
+      nativeTransparency: false,
+      appliedWorkarounds: ["unrecognized-workaround"]
+    })).toThrow();
   });
 
   it("validates a bounded offline catalog search", () => {

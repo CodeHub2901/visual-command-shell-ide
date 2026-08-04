@@ -5,8 +5,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { I18nProvider } from "./i18n";
+import { ThemeProvider } from "./theme";
+import { installFrameBoundedResizeObserver } from "./frame-resize-observer";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
+
+installFrameBoundedResizeObserver(window);
 
 const root = document.getElementById("root");
 if (root === null) {
@@ -21,9 +25,11 @@ async function mountRenderer() {
 
   reactRoot.render(
     <StrictMode>
-      <I18nProvider>
-        <Renderer />
-      </I18nProvider>
+      <ThemeProvider>
+        <I18nProvider>
+          <Renderer />
+        </I18nProvider>
+      </ThemeProvider>
     </StrictMode>
   );
 }

@@ -138,6 +138,22 @@ export const SystemProfileSchema = z
   })
   .strict();
 
+export const DesktopEnvironmentProfileSchema = z
+  .object({
+    platform: z.enum(["linux", "macos", "windows", "other"]),
+    sessionType: z.enum(["wayland", "x11", "unknown"]),
+    desktop: z.string().min(1).max(256).nullable(),
+    virtualization: z.enum(["vmware", "other", "none", "unknown"]),
+    graphicsMode: z.enum(["hardware", "software"]),
+    nativeTransparency: z.boolean(),
+    appliedWorkarounds: z.array(z.enum([
+      "wayland-ozone-auto",
+      "vmware-software-rendering",
+      "environment-software-rendering"
+    ])).max(3)
+  })
+  .strict();
+
 export const SystemDetectParamsSchema = z.object({}).strict();
 
 export const ToolStatusSchema = z.object({
@@ -1221,6 +1237,7 @@ export type HealthCheckResult = z.infer<typeof HealthCheckResultSchema>;
 export type DistroTarget = z.infer<typeof DistroTargetSchema>;
 export type ShellEnvironment = z.infer<typeof ShellEnvironmentSchema>;
 export type SystemProfile = z.infer<typeof SystemProfileSchema>;
+export type DesktopEnvironmentProfile = z.infer<typeof DesktopEnvironmentProfileSchema>;
 export type ToolStatus = z.infer<typeof ToolStatusSchema>;
 export type ToolingProfile = z.infer<typeof ToolingProfileSchema>;
 export type LanguageOpenResult = z.infer<typeof LanguageOpenResultSchema>;

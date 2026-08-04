@@ -14,10 +14,10 @@ const key = (value: string, overrides: Partial<ShortcutInput> = {}): ShortcutInp
 });
 
 describe("application keyboard shortcuts", () => {
-  it("maps Alt+1 through Alt+7 to the seven primary workspaces", () => {
+  it("maps Alt+1 through Alt+8 to the eight primary workspaces", () => {
     expect(resolveAppShortcut(key("1", { altKey: true }))).toEqual({ kind: "workspace", index: 0 });
-    expect(resolveAppShortcut(key("7", { altKey: true }))).toEqual({ kind: "workspace", index: 6 });
-    expect(resolveAppShortcut(key("8", { altKey: true }))).toBeNull();
+    expect(resolveAppShortcut(key("8", { altKey: true }))).toEqual({ kind: "workspace", index: 7 });
+    expect(resolveAppShortcut(key("9", { altKey: true }))).toBeNull();
   });
 
   it("supports keyboard mode changes and cross-platform search focus", () => {

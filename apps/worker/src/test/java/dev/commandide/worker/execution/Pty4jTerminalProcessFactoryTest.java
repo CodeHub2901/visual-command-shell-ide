@@ -71,8 +71,22 @@ final class Pty4jTerminalProcessFactoryTest {
 
         assertFalse(process.isAlive());
         assertFalse(
-                ProcessHandle.of(childProcessId).map(ProcessHandle::isAlive).orElse(false),
+                isExecuting(childProcessId),
                 "PTY cancellation left its child process running");
+    }
+
+    private static boolean isExecuting(long processId) throws Exception {
+        boolean processHandleAlive = ProcessHandle.of(processId)
+                .map(ProcessHandle::isAlive)
+                .orElse(false);
+        if (!processHandleAlive) return false;
+        Path linuxStat = Path.of("/proc", Long.toString(processId), "stat");
+        if (!Files.isRegularFile(linuxStat)) return true;
+        String stat = Files.readString(linuxStat, StandardCharsets.UTF_8);
+        int commandEnd = stat.lastIndexOf(')');
+        // A zombie has stopped executing and only awaits collection by PID 1.
+        // Minimal CI containers often use a PID 1 that does not reap promptly.
+        return commandEnd < 0 || commandEnd + 2 >= stat.length() || stat.charAt(commandEnd + 2) != 'Z';
     }
 
     @Test

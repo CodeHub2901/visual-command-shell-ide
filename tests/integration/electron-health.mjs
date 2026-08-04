@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { electronLaunchPlan } from "./electron-launch.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const desktopRoot = path.join(repositoryRoot, "apps", "desktop");
@@ -21,8 +22,14 @@ const bundledJavaExecutable = path.join(
   process.platform === "win32" ? "java.exe" : "java"
 );
 
-const command = process.platform === "linux" ? "xvfb-run" : electronExecutable;
-const args = process.platform === "linux" ? ["-a", electronExecutable, "."] : ["."];
+const isLinux = process.platform === "linux";
+const inCi = Boolean(process.env.CI) || Boolean(process.env.GITHUB_ACTIONS);
+const { command, args } = electronLaunchPlan({
+  platform: isLinux ? "linux" : process.platform,
+  executable: electronExecutable,
+  applicationArguments: ["."],
+  inCi
+});
 const child = spawn(command, args, {
   cwd: desktopRoot,
   windowsHide: true,
@@ -66,6 +73,7 @@ assert.equal(
   `Electron smoke failed (signal=${exit.signal ?? "none"})\nstdout:\n${stdoutText}\nstderr:\n${stderrText}`
 );
 assert.doesNotMatch(applicationOutput, /Application startup failed|worker-error/i);
+assert.doesNotMatch(applicationOutput, /ResizeObserver loop/i);
 assert.match(applicationOutput, /offline catalog validated/i);
 assert.match(applicationOutput, /(man|help|bundled) manual validated/i);
 assert.match(applicationOutput, /tldr CC-BY 4\.0 attribution validated/i);
@@ -86,6 +94,7 @@ assert.match(applicationOutput, /ollama model boundary returned (available|unava
 assert.match(applicationOutput, /proposal-only Ollama review workspace validated/i);
 assert.match(applicationOutput, /OpenAI write-only credential and curated-model workspace validated/i);
 assert.match(applicationOutput, /passive local tooling detection validated/i);
+assert.match(applicationOutput, /persisted System\/Light\/Dark glass appearance validated/i);
 assert.match(applicationOutput, /keyboard shortcuts and workspace focus validated/i);
 assert.match(applicationOutput, /collapsible terminal layout and session state validated/i);
 assert.match(applicationOutput, /React Flow and local Monaco editors validated/i);

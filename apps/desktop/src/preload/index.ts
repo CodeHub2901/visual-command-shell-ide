@@ -47,6 +47,7 @@ import {
   HistoryListParamsSchema,
   HistoryListResultSchema,
   SystemProfileSchema,
+  DesktopEnvironmentProfileSchema,
   ToolingProfileSchema,
   ToolSourceParamsSchema,
   ShellCheckResultSchema,
@@ -95,6 +96,7 @@ import {
   type WorkingDirectoryResult,
   type HistoryListResult,
   type SystemProfile,
+  type DesktopEnvironmentProfile,
   type ToolingProfile,
   type ShellCheckResult,
   type ShfmtResult,
@@ -115,6 +117,7 @@ import {
 
 const HEALTH_CHANNEL = "cmd-ide:health-check";
 const SYSTEM_CHANNEL = "cmd-ide:system-detect";
+const DESKTOP_ENVIRONMENT_CHANNEL = "cmd-ide:desktop-environment";
 const TOOLING_CHANNEL = "cmd-ide:tooling-detect";
 const SHELLCHECK_CHANNEL = "cmd-ide:tooling-shellcheck";
 const SHFMT_CHANNEL = "cmd-ide:tooling-shfmt";
@@ -168,6 +171,10 @@ const commandIdeApi = Object.freeze({
     detect: async (): Promise<SystemProfile> => {
       const result: unknown = await ipcRenderer.invoke(SYSTEM_CHANNEL, {});
       return SystemProfileSchema.parse(result);
+    },
+    desktopEnvironment: async (): Promise<DesktopEnvironmentProfile> => {
+      const result: unknown = await ipcRenderer.invoke(DESKTOP_ENVIRONMENT_CHANNEL, {});
+      return DesktopEnvironmentProfileSchema.parse(result);
     }
   }),
   tooling: Object.freeze({

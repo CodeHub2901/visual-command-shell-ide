@@ -7,6 +7,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { writeProbeResult } from "./probe-result.mjs";
+import { electronLaunchPlan } from "./electron-launch.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const configuredExecutable = process.env.CMD_IDE_INSTALLED_EXECUTABLE;
@@ -28,8 +29,13 @@ if (!executable.endsWith(".AppImage")) {
   );
 }
 
-const command = process.platform === "linux" ? "xvfb-run" : executable;
-const args = process.platform === "linux" ? ["-a", executable] : [];
+const isLinux = process.platform === "linux";
+const inCi = Boolean(process.env.CI) || Boolean(process.env.GITHUB_ACTIONS);
+const { command, args } = electronLaunchPlan({
+  platform: isLinux ? "linux" : process.platform,
+  executable,
+  inCi
+});
 const child = spawn(command, args, {
   cwd: path.dirname(executable),
   env: {
