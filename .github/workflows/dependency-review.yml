@@ -9,18 +9,6 @@ permissions:
 jobs:
   dependency-review:
     name: Reject newly introduced high-risk dependencies
-    if: github.event.repository.private == false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@40c09b7dc99638e5ddb0bfd91c1673effc064d8a # v4.8.1
-        with:
-          fail-on-severity: high
-          fail-on-scopes: runtime, development
-
-  private-osv-review:
-    name: Reject newly introduced vulnerabilities (private repository)
-    if: github.event.repository.private
     runs-on: ubuntu-latest
     env:
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
