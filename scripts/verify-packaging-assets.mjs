@@ -23,6 +23,12 @@ const betaReleaseNotes = fs.readFileSync(
   path.join(repositoryRoot, "docs", "release", "0.1.0-beta.md"),
   "utf8"
 );
+const constellationRegistry = JSON.parse(
+  fs.readFileSync(
+    path.join(repositoryRoot, "docs", "release", "constellation-codenames.json"),
+    "utf8"
+  )
+);
 const legalOwner = "Divyang S Mistry";
 const expectedIcon = "assets/packaging/icon.svg";
 const iconPath = path.join(desktopDirectory, expectedIcon);
@@ -49,6 +55,38 @@ assert(
 assert(
   betaReleaseNotes.startsWith(`# Command IDE ${expectedReleaseVersion} release notes`),
   "Beta release notes do not identify the packaged version"
+);
+const expectedReleaseTrain = expectedReleaseVersion.split("-")[0];
+const activeCodenameAssignment = constellationRegistry.assignments.find(
+  (assignment) => assignment.releaseTrain === expectedReleaseTrain
+);
+assert(
+  constellationRegistry.source
+    === "https://starchild.gsfc.nasa.gov/docs/StarChild/questions/88constellations.html"
+    && constellationRegistry.assignmentPolicy === "release-train",
+  "Constellation release registry source or assignment policy is invalid"
+);
+assert(
+  constellationRegistry.constellations.length === 88
+    && new Set(constellationRegistry.constellations).size === 88,
+  "Constellation release registry must contain 88 unique names"
+);
+assert(
+  activeCodenameAssignment?.currentVersion === expectedReleaseVersion
+    && constellationRegistry.constellations.includes(activeCodenameAssignment.codename)
+    && betaReleaseNotes.includes(`Codename: **${activeCodenameAssignment.codename}**`),
+  "Active release version, codename registry, and release notes are not synchronized"
+);
+const assignedIndexes = constellationRegistry.assignments.map((assignment) =>
+  constellationRegistry.constellations.indexOf(assignment.codename)
+);
+const lastAssignedIndex = Math.max(...assignedIndexes);
+assert(
+  assignedIndexes.every((index) => index >= 0)
+    && new Set(constellationRegistry.assignments.map((assignment) => assignment.codename)).size
+      === constellationRegistry.assignments.length
+    && constellationRegistry.nextCodename === constellationRegistry.constellations[lastAssignedIndex + 1],
+  "Constellation assignments are duplicated, unknown, or do not identify the next name"
 );
 for (const screenshot of [
   "catalog-wide.png",
