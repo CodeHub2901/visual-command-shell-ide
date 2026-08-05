@@ -196,7 +196,7 @@ public final class BashLanguageService implements AutoCloseable {
         ObjectNode params = mapper.createObjectNode();
         params.put("processId", ProcessHandle.current().pid());
         params.putNull("rootUri");
-        params.putObject("clientInfo").put("name", "Command IDE").put("version", "0.1.0-beta.1");
+        params.putObject("clientInfo").put("name", "Command IDE").put("version", "0.1.0-beta.2");
         ObjectNode textDocument = params.putObject("capabilities").putObject("textDocument");
         textDocument.putObject("completion").putObject("completionItem")
                 .putArray("documentationFormat").add("markdown").add("plaintext");

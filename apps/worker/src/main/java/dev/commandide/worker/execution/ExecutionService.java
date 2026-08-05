@@ -3,6 +3,7 @@
 
 package dev.commandide.worker.execution;
 
+import dev.commandide.worker.logging.StructuredLog;
 import dev.commandide.worker.catalog.ExecutableDiscovery;
 import dev.commandide.worker.persistence.ExecutionHistoryEntry;
 import dev.commandide.worker.persistence.ExecutionHistoryRepository;
@@ -164,7 +165,9 @@ public final class ExecutionService implements AutoCloseable {
             try {
                 session.process.terminateTree();
             } catch (Exception exception) {
-                System.err.println("Failed to stop terminal session " + session.id + ": " + exception.getMessage());
+                var context = new java.util.LinkedHashMap<>(StructuredLog.errorContext(exception));
+                context.put("sessionId", session.id);
+                StructuredLog.warn("execution.stop_failed", null, context);
             }
         }
         sessions.clear();
@@ -206,7 +209,9 @@ public final class ExecutionService implements AutoCloseable {
         try {
             history.finished(session.id, finishedAt, exitStatus);
         } catch (Exception exception) {
-            System.err.println("Failed to finish execution history " + session.id + ": " + exception.getMessage());
+            var context = new java.util.LinkedHashMap<>(StructuredLog.errorContext(exception));
+            context.put("sessionId", session.id);
+            StructuredLog.warn("execution.history_finish_failed", null, context);
         }
         emit(session, "exit", null, exitStatus, null);
     }
@@ -227,7 +232,10 @@ public final class ExecutionService implements AutoCloseable {
                     message,
                     clock.instant().toString()));
         } catch (Exception exception) {
-            System.err.println("Failed to publish terminal event: " + exception.getMessage());
+            var context = new java.util.LinkedHashMap<>(StructuredLog.errorContext(exception));
+            context.put("sessionId", session.id);
+            context.put("status", type);
+            StructuredLog.error("execution.event_publish_failed", null, context);
             try {
                 if (session.process.isAlive()) session.process.terminateTree();
             } catch (InterruptedException interrupted) {

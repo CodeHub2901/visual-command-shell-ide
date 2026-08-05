@@ -26,6 +26,7 @@ import dev.commandide.worker.execution.ExecutionService;
 import dev.commandide.worker.manual.ManualService;
 import dev.commandide.worker.language.BashLanguageService;
 import dev.commandide.worker.language.LanguageDiagnosticsEvent;
+import dev.commandide.worker.logging.StructuredLog;
 import dev.commandide.worker.persistence.DatabaseManager;
 import dev.commandide.worker.persistence.BookmarkRepository;
 import dev.commandide.worker.persistence.ExecutionHistoryRepository;
@@ -44,11 +45,13 @@ import dev.commandide.worker.tooling.ToolExecutionService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public final class FramedJsonRpcServer {
     private static final String JSON_RPC_VERSION = "2.0";
     private static final String PROTOCOL_VERSION = "1.0";
-    private static final String WORKER_VERSION = "0.1.0-beta.1";
+    private static final String WORKER_VERSION = "0.1.0-beta.2";
     private static final String CANCEL_REQUEST_METHOD = "v1.request.cancel";
 
     private final InputStream input;
@@ -131,13 +134,26 @@ public final class FramedJsonRpcServer {
         try {
             while ((payload = FrameCodec.readFrame(input)) != null) {
                 ObjectNode response;
+                long startedAt = System.nanoTime();
+                String correlationId = null;
+                String method = "unknown";
                 try {
                     JsonNode request = mapper.readTree(payload);
+                    correlationId = correlationIdentifier(request.path("id"));
+                    method = request.path("method").asText("unknown");
+                    logRpcStarted(method, correlationId, payload.length);
                     response = dispatch(request);
+                    logRpcCompleted(method, correlationId, startedAt, response);
                 } catch (JsonProcessingException exception) {
+                    StructuredLog.warn("rpc.request.parse_failed", null, Map.of(
+                            "payloadBytes", payload.length,
+                            "errorName", exception.getClass().getSimpleName()));
                     response = error(null, -32700, "Parse error");
                 } catch (RuntimeException exception) {
-                    System.err.println("Worker request failed: " + exception.getMessage());
+                    Map<String, Object> context = new LinkedHashMap<>(StructuredLog.errorContext(exception));
+                    context.put("method", method);
+                    context.put("durationMs", elapsedMilliseconds(startedAt));
+                    StructuredLog.error("rpc.request.failed", correlationId, context);
                     response = error(null, -32603, "Internal error");
                 }
                 if (response != null) writeMessage(response);
@@ -147,6 +163,51 @@ public final class FramedJsonRpcServer {
             credentialService.close();
             bashLanguageService.close();
         }
+    }
+
+    private void logRpcStarted(String method, String correlationId, int payloadBytes) {
+        Map<String, Object> context = Map.of("method", method, "payloadBytes", payloadBytes);
+        if (highFrequencyMethod(method)) {
+            StructuredLog.debug("rpc.request.received", correlationId, context);
+        } else {
+            StructuredLog.info("rpc.request.received", correlationId, context);
+        }
+    }
+
+    private void logRpcCompleted(
+            String method,
+            String correlationId,
+            long startedAt,
+            ObjectNode response) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("method", method);
+        context.put("durationMs", elapsedMilliseconds(startedAt));
+        context.put("status", response == null ? "notification" : response.has("error") ? "error" : "success");
+        if (response != null && response.has("error")) {
+            context.put("errorCode", response.path("error").path("code").asText("unknown"));
+            StructuredLog.warn("rpc.request.completed", correlationId, context);
+        } else if (highFrequencyMethod(method)) {
+            StructuredLog.debug("rpc.request.completed", correlationId, context);
+        } else {
+            StructuredLog.info("rpc.request.completed", correlationId, context);
+        }
+    }
+
+    private static String correlationIdentifier(JsonNode id) {
+        if (id.isTextual() || id.isIntegralNumber()) return id.asText();
+        return null;
+    }
+
+    private static boolean highFrequencyMethod(String method) {
+        return method.equals("v1.execution.input")
+                || method.equals("v1.execution.resize")
+                || method.equals("v1.language.change")
+                || method.equals("v1.language.completion")
+                || method.equals("v1.language.hover");
+    }
+
+    private static double elapsedMilliseconds(long startedAt) {
+        return Math.round(((System.nanoTime() - startedAt) / 1_000_000.0) * 10.0) / 10.0;
     }
 
     private ObjectNode dispatch(JsonNode request) {
@@ -892,7 +953,10 @@ public final class FramedJsonRpcServer {
         try {
             writeMessage(notification);
         } catch (IOException exception) {
-            System.err.println("Could not deliver language diagnostics: " + exception.getMessage());
+            StructuredLog.warn(
+                    "language.diagnostics_delivery_failed",
+                    null,
+                    StructuredLog.errorContext(exception));
         }
     }
 
