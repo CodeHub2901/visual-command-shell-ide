@@ -38,7 +38,7 @@ final class FramedJsonRpcServerTest {
         assertEquals("2.0", response.path("jsonrpc").asText());
         assertEquals("health-1", response.path("id").asText());
         assertEquals("1.0", response.path("result").path("protocolVersion").asText());
-        assertEquals("0.1.0-beta.1", response.path("result").path("workerVersion").asText());
+        assertEquals("0.1.0-beta.2", response.path("result").path("workerVersion").asText());
         assertTrue(response.path("result").path("pid").asLong() > 0);
     }
 

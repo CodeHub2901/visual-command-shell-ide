@@ -15,7 +15,7 @@ public final class CommandIdeWorker {
     public static void main(String[] args) {
         Thread.currentThread().setName("command-ide-worker-main");
         StructuredLog.info("worker.starting", null, Map.of(
-                "version", "0.1.0-beta.1",
+                "version", "0.1.0-beta.2",
                 "pid", ProcessHandle.current().pid()));
 
         try {

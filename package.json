@@ -1,6 +1,6 @@
 {
   "name": "visual-command-shell-ide",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Offline-first visual command and shell IDE",
   "license": "Apache-2.0",

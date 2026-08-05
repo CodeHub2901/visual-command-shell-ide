@@ -31,7 +31,7 @@ The machine-readable sequence and assignment ledger live in
 
 | Release train | Current version | Codename | Status |
 | --- | --- | --- | --- |
-| `0.1.0` | `0.1.0-beta.1` | **Andromeda** | Draft release candidate |
+| `0.1.0` | `0.1.0-beta.2` | **Andromeda** | Draft release candidate |
 
 ## Next name
 
