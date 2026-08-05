@@ -13,4 +13,9 @@ describe("first-run workflow progress", () => {
     expect(workflowProgress(true, false)).toEqual(["complete", "active", "upcoming", "upcoming"]);
     expect(workflowProgress(true, true)).toEqual(["complete", "complete", "active", "upcoming"]);
   });
+
+  it("makes run active only after review requirements are satisfied", () => {
+    expect(workflowProgress(true, true, true, false)).toEqual(["complete", "complete", "complete", "active"]);
+    expect(workflowProgress(true, true, true, true)).toEqual(["complete", "complete", "complete", "complete"]);
+  });
 });

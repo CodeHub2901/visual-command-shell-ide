@@ -7,10 +7,8 @@ import { workspaceIconPaths } from "./workspace-icons";
 describe("workspace navigation icons", () => {
   it("provides a distinct vector icon for every primary workspace", () => {
     expect(Object.keys(workspaceIconPaths)).toEqual([
-      "catalog",
-      "visual-builder",
-      "script-editor",
-      "manual",
+      "home",
+      "command",
       "ai-assistant",
       "bookmarks",
       "history",

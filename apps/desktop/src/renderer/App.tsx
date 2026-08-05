@@ -157,15 +157,24 @@ type ExecutionDraft = {
   assessment: RiskAssessment;
 };
 
+type CommandView = "manual" | "guided" | "editor" | "review";
+
+type WorkingDirectory = { token: string; label: string };
+
+type ExecutionState =
+  | { status: "idle" }
+  | { status: "starting" }
+  | { status: "running" }
+  | { status: "exited"; exitStatus: number }
+  | { status: "error"; message: string };
+
 function focusAfterLayout(action: () => void): void {
   window.requestAnimationFrame(() => window.requestAnimationFrame(action));
 }
 
 const workspaces = [
-  { id: "catalog", messageId: "workspace.catalog" },
-  { id: "visual-builder", messageId: "workspace.visualBuilder" },
-  { id: "script-editor", messageId: "workspace.scriptEditor" },
-  { id: "manual", messageId: "workspace.manual" },
+  { id: "home", messageId: "workspace.home" },
+  { id: "command", messageId: "workspace.command" },
   { id: "ai-assistant", messageId: "workspace.aiAssistant" },
   { id: "bookmarks", messageId: "workspace.bookmarks" },
   { id: "history", messageId: "workspace.history" },
@@ -192,7 +201,8 @@ export function App() {
   const [loadedProject, setLoadedProject] = useState<ScriptProject | null>(null);
   const [projectImport, setProjectImport] = useState<ProjectActionState>({ status: "idle" });
   const [executionDraft, setExecutionDraft] = useState<ExecutionDraft | null>(null);
-  const [workspace, setWorkspace] = useState<WorkspaceId>("catalog");
+  const [workspace, setWorkspace] = useState<WorkspaceId>("home");
+  const [commandView, setCommandView] = useState<CommandView>("guided");
   const [onboardingVisible, setOnboardingVisible] = useState(() => {
     try {
       return !onboardingCompleteFromStorage(window.localStorage.getItem(ONBOARDING_STORAGE_KEY));
@@ -223,7 +233,11 @@ export function App() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1100);
   const [inspectorOpen, setInspectorOpen] = useState(() => window.innerWidth >= 1440);
-  const [terminalRunning, setTerminalRunning] = useState(false);
+  const [workingDirectory, setWorkingDirectory] = useState<WorkingDirectory | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [terminalSize, setTerminalSize] = useState({ columns: 80, rows: 24 });
+  const [typedConfirmation, setTypedConfirmation] = useState("");
+  const [executionState, setExecutionState] = useState<ExecutionState>({ status: "idle" });
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [languageCommands, setLanguageCommands] = useState<CommandSpec[]>([]);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -278,7 +292,7 @@ export function App() {
       if (shortcut === null) return;
       event.preventDefault();
       if (shortcut.kind === "focus-search") {
-        setWorkspace("catalog");
+        setWorkspace("home");
         setSidebarOpen(true);
         focusAfterLayout(() => {
           searchInput.current?.focus();
@@ -288,8 +302,9 @@ export function App() {
       }
       if (shortcut.kind === "mode") {
         setMode(shortcut.mode);
+        setCommandView(shortcut.mode === "Guided" ? "guided" : "editor");
         if (selectedId !== null) {
-          setWorkspace(shortcut.mode === "Guided" ? "visual-builder" : "script-editor");
+          setWorkspace("command");
         }
         workspaceContent.current?.focus();
         return;
@@ -300,9 +315,13 @@ export function App() {
       }
       const target = workspaces[shortcut.index];
       if (target === undefined) return;
+      if (target.id === "command" && selectedId === null) {
+        setWorkspace("home");
+        setSidebarOpen(true);
+        focusAfterLayout(() => searchInput.current?.focus());
+        return;
+      }
       setWorkspace(target.id);
-      if (target.id === "visual-builder") setMode("Guided");
-      if (target.id === "script-editor") setMode("Compact");
       if (layoutBand === "compact") setSidebarOpen(false);
       workspaceContent.current?.focus();
     };
@@ -320,6 +339,13 @@ export function App() {
       // Storage may be unavailable in a restricted session; in-memory state still works.
     }
   }, [terminalExpanded]);
+
+  useEffect(() => {
+    setTypedConfirmation("");
+    setExecutionState((current) => current.status === "running" || current.status === "starting"
+      ? current
+      : { status: "idle" });
+  }, [executionDraft?.assessment.reviewHash]);
 
   useEffect(() => {
     try {
@@ -473,10 +499,101 @@ export function App() {
     return () => { active = false; };
   }, [selected]);
 
-  const commandContext = workspace === "catalog"
-    || workspace === "manual"
-    || workspace === "visual-builder"
-    || workspace === "script-editor";
+  const terminalRunning = executionState.status === "starting" || executionState.status === "running";
+  const currentSaveState = draftSaveState(loadedProject?.program ?? null, executionDraft?.program ?? null);
+  const risk = executionDraft?.assessment.level ?? null;
+  const criticalPolicy = criticalExecutionPolicy(
+    risk,
+    mode,
+    executionDraft?.assessment.reviewHash ?? null,
+    typedConfirmation
+  );
+  const reviewReady = executionDraft !== null
+    && workingDirectory !== null
+    && !criticalPolicy.blocked
+    && criticalPolicy.ready;
+
+  const mayReplaceCurrentDraft = (): boolean => {
+    if (terminalRunning) {
+      window.alert(t("project.cancelBeforeReplace"));
+      return false;
+    }
+    if (currentSaveState !== "unsaved" && currentSaveState !== "changed") return true;
+    return window.confirm(t("project.confirmDiscard"));
+  };
+
+  const selectCommand = (id: string) => {
+    if (id === selectedId) {
+      setWorkspace("command");
+      if (layoutBand === "compact") closeSidebar();
+      return;
+    }
+    if (!mayReplaceCurrentDraft()) return;
+    setExecutionDraft(null);
+    setLoadedProject(null);
+    setWorkingDirectory(null);
+    setExecutionState({ status: "idle" });
+    setSessionId(null);
+    setSelectedId(id);
+    setCommandView(mode === "Guided" ? "guided" : "editor");
+    setWorkspace("command");
+    if (layoutBand === "compact") closeSidebar();
+  };
+
+  const openProject = (project: ScriptProject) => {
+    const firstCommand = findCommand(project.program);
+    const nextMode = firstCommand === undefined ? "Compact" : "Guided";
+    setExecutionDraft(null);
+    setLoadedProject(project);
+    setWorkingDirectory(null);
+    setSelectedId(firstCommand?.commandId ?? "ls");
+    setMode(nextMode);
+    setCommandView(nextMode === "Guided" ? "guided" : "editor");
+    setExecutionState({ status: "idle" });
+    setSessionId(null);
+    setWorkspace("command");
+  };
+
+  const chooseDirectory = () => {
+    void window.commandIde.execution.chooseWorkingDirectory().then((result) => {
+      if (result.status === "selected") {
+        setWorkingDirectory({ token: result.token, label: result.label });
+      }
+    }, (error: unknown) => {
+      setExecutionState({ status: "error", message: errorMessage(error, t("error.directorySelection")) });
+    });
+  };
+
+  const runExecution = () => {
+    if (!reviewReady || executionDraft === null || workingDirectory === null) return;
+    setExecutionState({ status: "starting" });
+    setTerminalExpanded(true);
+    void window.commandIde.execution.start({
+      program: executionDraft.program,
+      reviewedScript: executionDraft.assessment.script,
+      reviewHash: executionDraft.assessment.reviewHash,
+      interfaceMode: mode.toLowerCase() as "guided" | "compact",
+      confirmed: true,
+      typedConfirmation: risk === "critical" ? typedConfirmation : null,
+      workingDirectoryToken: workingDirectory.token,
+      columns: terminalSize.columns,
+      rows: terminalSize.rows
+    }).then((result) => {
+      setSessionId(result.sessionId);
+      setExecutionState({ status: "running" });
+    }, (error: unknown) => {
+      setExecutionState({ status: "error", message: errorMessage(error, t("error.executionRejected")) });
+    });
+  };
+
+  const cancelExecution = () => {
+    if (sessionId === null) return;
+    void window.commandIde.execution.cancel(sessionId).catch((error: unknown) => {
+      setExecutionState({ status: "error", message: errorMessage(error, t("error.cancellation")) });
+    });
+  };
+
+  const commandContext = workspace === "home" || workspace === "command";
 
   return (
     <main
@@ -518,9 +635,13 @@ export function App() {
             aria-keyshortcuts={`Alt+${index + 1}`}
             title={t("app.shortcutTitle", { name: workspaceName, number: index + 1 })}
             onClick={() => {
+              if (workspaceEntry.id === "command" && selected === null) {
+                setWorkspace("home");
+                setSidebarOpen(true);
+                focusAfterLayout(() => searchInput.current?.focus());
+                return;
+              }
               setWorkspace(workspaceEntry.id);
-              if (workspaceEntry.id === "visual-builder") setMode("Guided");
-              if (workspaceEntry.id === "script-editor") setMode("Compact");
               if (layoutBand === "compact") closeSidebar();
               workspaceContent.current?.focus();
             }}
@@ -598,64 +719,9 @@ export function App() {
           state={catalog}
           selectedId={selectedId}
           onRetry={() => setCatalogRefresh((value) => value + 1)}
-          onSelect={(id) => {
-            setExecutionDraft(null);
-            setLoadedProject(null);
-            setSelectedId(id);
-            setWorkspace("manual");
-            if (layoutBand === "compact") closeSidebar();
-          }}
+          onSelect={selectCommand}
         />
         <PathDiscovery state={discovery} onRefresh={() => discoverPath(true)} />
-        <section className="project-import">
-          <button
-            type="button"
-            disabled={projectImport.status === "working"}
-            onClick={() => {
-              setProjectImport({ status: "working", message: t("project.opening") });
-              void window.commandIde.files.importProject().then((result) => {
-                if (result.status === "canceled") {
-                  setProjectImport({ status: "idle" });
-                  return;
-                }
-                setExecutionDraft(null);
-                setLoadedProject(result.project);
-                const firstCommand = findCommand(result.project.program);
-                setSelectedId(firstCommand?.commandId ?? "ls");
-                setMode(firstCommand === undefined ? "Compact" : "Guided");
-                setWorkspace(firstCommand === undefined ? "script-editor" : "visual-builder");
-                setProjectImport({
-                  status: "success",
-                  message: t("project.imported", { fileName: result.fileName })
-                });
-              }, (error: unknown) => {
-                setProjectImport({ status: "error", message: errorMessage(error, t("error.projectImport")) });
-              });
-            }}
-          >
-            {projectImport.status === "working" ? t("project.importing") : t("project.import")}
-          </button>
-          {(projectImport.status === "success" || projectImport.status === "error") && (
-            <span className={projectImport.status === "error" ? "error-text" : ""}>{projectImport.message}</span>
-          )}
-        </section>
-        <RecentProjects
-          state={projects}
-          onRetry={() => setProjectRefresh((value) => value + 1)}
-          onOpen={(projectId) => {
-            void window.commandIde.projects.get(projectId).then((result) => {
-              if (result.project === null) return;
-              setExecutionDraft(null);
-              setLoadedProject(result.project);
-              const firstCommand = findCommand(result.project.program);
-              setSelectedId(firstCommand?.commandId ?? null);
-              setMode("Guided");
-              setWorkspace("visual-builder");
-            }, (error: unknown) => {
-              setProjects({ status: "error", message: errorMessage(error, t("error.projectOpen")) });
-            });
-          }}
-        />
         </>
         ) : (
           <WorkspaceContextSidebar
@@ -682,13 +748,15 @@ export function App() {
             <h2
               className="tab active"
               id="workspace-heading"
-              title={t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.catalog")}
+              title={t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.home")}
             >
-              {t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.catalog")}
+              {t(workspaces.find((entry) => entry.id === workspace)?.messageId ?? "workspace.home")}
             </h2>
-            <span className={`mode-context ${mode.toLowerCase()}`} id="mode-context">
-              {mode === "Guided" ? t("mode.guidedSummary") : t("mode.compactSummary")}
-            </span>
+            {workspace === "command" && selected !== null && (
+              <span className={`mode-context ${mode.toLowerCase()}`} id="mode-context">
+                {mode === "Guided" ? t("mode.guidedSummary") : t("mode.compactSummary")}
+              </span>
+            )}
           </div>
           <div className="workspace-toolbar">
             <button
@@ -703,32 +771,36 @@ export function App() {
             >
               <PanelIcon side="left" />
             </button>
-            <div
-              className="mode-switch"
-              role="group"
-              aria-label={t("app.interfaceMode")}
-              aria-describedby="mode-context"
-            >
-              {(["Guided", "Compact"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={mode === value ? "selected" : ""}
-                  aria-pressed={mode === value}
-                  aria-keyshortcuts={value === "Guided" ? "Alt+G" : "Alt+C"}
-                  title={value === "Guided" ? t("mode.guidedDescription") : t("mode.compactDescription")}
-                  onClick={() => {
-                    setMode(value);
-                    if (selected !== null) {
-                      setWorkspace(value === "Guided" ? "visual-builder" : "script-editor");
-                    }
-                  }}
-                >
-                  {value === "Guided" ? t("mode.guided") : t("mode.compact")}
-                </button>
-              ))}
-            </div>
-            {(workspace === "visual-builder" || workspace === "script-editor") && (
+            {workspace === "command" && selected !== null && (
+              <div className="command-view-switch" role="tablist" aria-label={t("command.tabsLabel")}>
+                {(["manual", "guided", "editor", "review"] as const).map((view) => (
+                  <button
+                    key={view}
+                    type="button"
+                    role="tab"
+                    aria-selected={commandView === view}
+                    aria-controls="command-workspace-panel"
+                    className={commandView === view ? "selected" : ""}
+                    aria-keyshortcuts={view === "guided" ? "Alt+G" : view === "editor" ? "Alt+C" : undefined}
+                    onClick={() => {
+                      setCommandView(view);
+                      if (view === "guided") setMode("Guided");
+                      if (view === "editor") setMode("Compact");
+                      workspaceContent.current?.focus();
+                    }}
+                  >
+                    {t(view === "manual"
+                      ? "command.tab.manual"
+                      : view === "guided"
+                        ? "command.tab.guided"
+                        : view === "editor"
+                          ? "command.tab.editor"
+                          : "command.tab.review")}
+                  </button>
+                ))}
+              </div>
+            )}
+            {workspace === "command" && selected !== null && (
               <div className="primary-actions" aria-label={t("app.primaryActions")}>
                 <button
                   type="button"
@@ -747,13 +819,11 @@ export function App() {
                   type="button"
                   aria-label={t("app.reviewRun")}
                   title={t("app.reviewRun")}
-                  disabled={executionDraft === null}
-                  onClick={() => {
-                    setTerminalExpanded(true);
-                    focusAfterLayout(() => {
-                      document.querySelector<HTMLButtonElement>("[data-primary-run]")?.focus();
-                    });
-                  }}
+                   disabled={executionDraft === null}
+                   onClick={() => {
+                     setCommandView("review");
+                     focusAfterLayout(() => workspaceContent.current?.focus());
+                   }}
                 >
                   <PrimaryActionIcon name="review-run" />
                   <span>{t("app.reviewRun")}</span>
@@ -762,10 +832,8 @@ export function App() {
                   type="button"
                   aria-label={t("app.cancelExecution")}
                   title={t("app.cancelExecution")}
-                  disabled={!terminalRunning}
-                  onClick={() => {
-                    document.querySelector<HTMLButtonElement>("[data-primary-cancel]")?.click();
-                  }}
+                   disabled={!terminalRunning}
+                   onClick={cancelExecution}
                 >
                   <PrimaryActionIcon name="cancel" />
                   <span>{t("common.cancel")}</span>
@@ -801,39 +869,96 @@ export function App() {
             project={loadedProject}
             draft={executionDraft}
           />
-          {(workspace === "catalog" || workspace === "visual-builder" || workspace === "script-editor") && (
-            <WorkflowGuide hasCommand={selected !== null} hasValidatedDraft={executionDraft !== null} />
-          )}
-          {workspace === "catalog" ? (
-            <CatalogWelcome
-              catalog={catalog}
-              health={health}
-              system={system}
-              onboardingVisible={onboardingVisible}
-              onChooseMode={(nextMode) => {
-                setMode(nextMode);
-                setOnboardingVisible(false);
-                try {
-                  window.localStorage.setItem(ONBOARDING_STORAGE_KEY, ONBOARDING_STORAGE_VALUE);
-                } catch {
-                  // First-run guidance can complete in memory when storage is unavailable.
-                }
-                setSidebarOpen(true);
-                focusAfterLayout(() => searchInput.current?.focus());
-              }}
-              onRetryHealth={() => {
-                setHealth({ status: "checking" });
-                setSystem({ status: "checking" });
-                setHealthRefresh((value) => value + 1);
-              }}
+          {(workspace === "home" || (workspace === "command" && commandView !== "review")) && (
+            <WorkflowGuide
+              hasCommand={selected !== null}
+              hasValidatedDraft={executionDraft !== null}
+              reviewReady={reviewReady}
+              hasRun={executionState.status === "exited"}
             />
-          ) : workspace === "history" ? (
+          )}
+          {workspace === "home" && (
+            <div className="home-workspace">
+              <CatalogWelcome
+                catalog={catalog}
+                health={health}
+                system={system}
+                onboardingVisible={onboardingVisible}
+                onChooseMode={(nextMode) => {
+                  setMode(nextMode);
+                  setCommandView(nextMode === "Guided" ? "guided" : "editor");
+                  setOnboardingVisible(false);
+                  try {
+                    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, ONBOARDING_STORAGE_VALUE);
+                  } catch {
+                    // First-run guidance can complete in memory when storage is unavailable.
+                  }
+                  setSidebarOpen(true);
+                  focusAfterLayout(() => searchInput.current?.focus());
+                }}
+                onRetryHealth={() => {
+                  setHealth({ status: "checking" });
+                  setSystem({ status: "checking" });
+                  setHealthRefresh((value) => value + 1);
+                }}
+              />
+              <section className="home-projects" aria-labelledby="home-projects-title">
+                <div className="home-section-heading">
+                  <div>
+                    <p className="eyebrow">{t("project.localEyebrow")}</p>
+                    <h2 id="home-projects-title">{t("project.homeTitle")}</h2>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={projectImport.status === "working"}
+                    onClick={() => {
+                      if (!mayReplaceCurrentDraft()) return;
+                      setProjectImport({ status: "working", message: t("project.opening") });
+                      void window.commandIde.files.importProject().then((result) => {
+                        if (result.status === "canceled") {
+                          setProjectImport({ status: "idle" });
+                          return;
+                        }
+                        openProject(result.project);
+                        setProjectImport({
+                          status: "success",
+                          message: t("project.imported", { fileName: result.fileName })
+                        });
+                      }, (error: unknown) => {
+                        setProjectImport({ status: "error", message: errorMessage(error, t("error.projectImport")) });
+                      });
+                    }}
+                  >
+                    {projectImport.status === "working" ? t("project.importing") : t("project.import")}
+                  </button>
+                </div>
+                {(projectImport.status === "success" || projectImport.status === "error") && (
+                  <span className={projectImport.status === "error" ? "error-text" : ""}>{projectImport.message}</span>
+                )}
+                <RecentProjects
+                  state={projects}
+                  onRetry={() => setProjectRefresh((value) => value + 1)}
+                  onOpen={(projectId) => {
+                    if (!mayReplaceCurrentDraft()) return;
+                    void window.commandIde.projects.get(projectId).then((result) => {
+                      if (result.project !== null) openProject(result.project);
+                    }, (error: unknown) => {
+                      setProjects({ status: "error", message: errorMessage(error, t("error.projectOpen")) });
+                    });
+                  }}
+                />
+              </section>
+            </div>
+          )}
+          {workspace === "history" && (
             <HistoryView refresh={historyRefresh} />
-          ) : workspace === "bookmarks" ? (
+          )}
+          {workspace === "bookmarks" && (
             <BookmarksView
               draft={executionDraft}
               parameters={loadedProject?.parameters ?? []}
               onUse={(bookmark) => {
+                if (!mayReplaceCurrentDraft()) return;
                 const now = new Date().toISOString();
                 const profile = system.status === "ready" ? system.result : null;
                 const project: ScriptProject = {
@@ -858,20 +983,18 @@ export function App() {
                   layout: { nodes: [], viewport: { x: 0, y: 0, zoom: 1 } },
                   parameters: bookmark.parameters
                 };
-                setLoadedProject(project);
-                setExecutionDraft(null);
-                setSelectedId(findCommand(bookmark.program)?.commandId ?? "ls");
-                setMode("Guided");
-                setWorkspace("visual-builder");
+                openProject(project);
               }}
             />
-          ) : workspace === "ai-assistant" ? (
+          )}
+          {workspace === "ai-assistant" && (
             <AiAssistantView
               currentSource={executionDraft?.assessment.script ?? null}
               onApply={(proposal: AiProposal) => {
+                if (!mayReplaceCurrentDraft()) return;
                 const now = new Date().toISOString();
                 const profile = system.status === "ready" ? system.result : null;
-                setLoadedProject({
+                const project: ScriptProject = {
                   schemaVersion: "1.4.0",
                   projectId: crypto.randomUUID(),
                   name: t("project.aiProposalName", { operation: proposal.operation }),
@@ -892,14 +1015,15 @@ export function App() {
                   program: proposal.program,
                   layout: { nodes: [], viewport: { x: 0, y: 0, zoom: 1 } },
                   parameters: []
-                });
+                };
+                openProject(project);
                 setExecutionDraft({ program: proposal.program, assessment: proposal.assessment });
-                setSelectedId(findCommand(proposal.program)?.commandId ?? "ls");
                 setMode("Compact");
-                setWorkspace("script-editor");
+                setCommandView("editor");
               }}
             />
-          ) : workspace === "settings" ? (
+          )}
+          {workspace === "settings" && (
             <SettingsView
               desktopEnvironment={desktopEnvironment}
               onShowOnboarding={() => {
@@ -909,51 +1033,86 @@ export function App() {
                   // The walkthrough remains available for this session.
                 }
                 setOnboardingVisible(true);
-                setWorkspace("catalog");
+                setWorkspace("home");
                 setSidebarOpen(true);
-                focusAfterLayout(() => workspaceContent.current?.focus());
+                focusAfterLayout(() => document.querySelector<HTMLButtonElement>(".onboarding-actions button")?.focus());
               }}
             />
-          ) : selected === null ? (
+          )}
+          {workspace === "command" && selected === null && (
             <CatalogWelcome
               catalog={catalog}
               health={health}
               system={system}
               onboardingVisible={false}
-              onChooseMode={setMode}
+              onChooseMode={(nextMode) => {
+                setMode(nextMode);
+                setCommandView(nextMode === "Guided" ? "guided" : "editor");
+                setWorkspace("home");
+                setSidebarOpen(true);
+                focusAfterLayout(() => searchInput.current?.focus());
+              }}
               onRetryHealth={() => {
                 setHealth({ status: "checking" });
                 setSystem({ status: "checking" });
                 setHealthRefresh((value) => value + 1);
               }}
             />
-          ) : (
-            <CommandManual
-              command={selected}
-              view={workspace === "visual-builder"
-                ? "builder"
-                : workspace === "script-editor"
-                  ? "editor"
-                  : "manual"}
-              state={manual}
-              system={system}
-              catalogVersion={catalog.status === "ready" ? catalog.result.catalogVersion : "1.2.0"}
-              availableCommands={languageCommands.length > 0
-                ? languageCommands
-                : catalog.status === "ready" ? catalog.result.commands : [selected]}
-              initialProject={loadedProject}
-              onProjectSaved={(project) => {
-                setLoadedProject(project);
-                setProjectRefresh((value) => value + 1);
-              }}
-              onExecutionDraftChange={setExecutionDraft}
-            />
+          )}
+          {selected !== null && (
+            <section
+              className="command-workspace-panel"
+              id="command-workspace-panel"
+              role="tabpanel"
+              hidden={workspace !== "command"}
+            >
+              <div hidden={commandView === "review"}>
+                <CommandManual
+                  command={selected}
+                  view={commandView === "guided"
+                    ? "builder"
+                    : commandView === "editor"
+                      ? "editor"
+                      : commandView === "manual"
+                        ? "manual"
+                        : mode === "Guided" ? "builder" : "editor"}
+                  state={manual}
+                  system={system}
+                  catalogVersion={catalog.status === "ready" ? catalog.result.catalogVersion : "1.2.0"}
+                  availableCommands={languageCommands.length > 0
+                    ? languageCommands
+                    : catalog.status === "ready" ? catalog.result.commands : [selected]}
+                  initialProject={loadedProject}
+                  onProjectSaved={(project) => {
+                    setLoadedProject(project);
+                    setProjectRefresh((value) => value + 1);
+                  }}
+                  onExecutionDraftChange={setExecutionDraft}
+                />
+              </div>
+              {commandView === "review" && (
+                <ExecutionReview
+                  draft={executionDraft}
+                  mode={mode}
+                  directory={workingDirectory}
+                  state={executionState}
+                  typedConfirmation={typedConfirmation}
+                  criticalPhrase={criticalPolicy.phrase}
+                  criticalBlocked={criticalPolicy.blocked}
+                  criticalReady={criticalPolicy.ready}
+                  onChooseDirectory={chooseDirectory}
+                  onTypedConfirmationChange={setTypedConfirmation}
+                  onRun={runExecution}
+                  onCancel={cancelExecution}
+                  onReturnToEditor={() => setCommandView(mode === "Guided" ? "guided" : "editor")}
+                />
+              )}
+            </section>
           )}
         </div>
 
         <TerminalPanel
           draft={executionDraft}
-          mode={mode}
           expanded={terminalExpanded}
           paneRootRef={appShell}
           height={paneSizes.terminal}
@@ -961,8 +1120,13 @@ export function App() {
           maximumHeight={paneBounds.terminal.max}
           onHeightChange={(value) => commitPaneSize("terminal", value)}
           onToggle={() => setTerminalExpanded((value) => !value)}
-          onRunningChange={setTerminalRunning}
-          onExecutionFinished={() => setHistoryRefresh((value) => value + 1)}
+          sessionId={sessionId}
+          state={executionState}
+          onDimensions={(columns, rows) => setTerminalSize({ columns, rows })}
+          onExit={(exitStatus) => {
+            setExecutionState({ status: "exited", exitStatus });
+            setHistoryRefresh((value) => value + 1);
+          }}
         />
       </section>
 
@@ -997,8 +1161,8 @@ export function App() {
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
-        <h2>{selected?.displayName ?? t("app.environment")}</h2>
-        {selected === null ? (
+        <h2>{workspace === "command" ? selected?.displayName ?? t("app.environment") : t("app.environment")}</h2>
+        {workspace !== "command" || selected === null ? (
           <EnvironmentDetails health={health} system={system} mode={mode} />
         ) : (
           <>
@@ -1980,9 +2144,130 @@ function CompactScriptEditor({
   );
 }
 
-function TerminalPanel({
+function ExecutionReview({
   draft,
   mode,
+  directory,
+  state,
+  typedConfirmation,
+  criticalPhrase,
+  criticalBlocked,
+  criticalReady,
+  onChooseDirectory,
+  onTypedConfirmationChange,
+  onRun,
+  onCancel,
+  onReturnToEditor
+}: {
+  draft: ExecutionDraft | null;
+  mode: "Guided" | "Compact";
+  directory: WorkingDirectory | null;
+  state: ExecutionState;
+  typedConfirmation: string;
+  criticalPhrase: string;
+  criticalBlocked: boolean;
+  criticalReady: boolean;
+  onChooseDirectory: () => void;
+  onTypedConfirmationChange: (value: string) => void;
+  onRun: () => void;
+  onCancel: () => void;
+  onReturnToEditor: () => void;
+}) {
+  const { t } = useI18n();
+  const running = state.status === "starting" || state.status === "running";
+  const risk = draft?.assessment.level ?? null;
+  return (
+    <article className="execution-review-workspace" aria-labelledby="execution-review-title">
+      <header className="review-heading">
+        <div>
+          <p className="eyebrow">{t("review.eyebrow")}</p>
+          <h2 id="execution-review-title">{t("review.title")}</h2>
+          <p>{t("review.description")}</p>
+        </div>
+        <span className={`risk-badge ${risk ?? "none"}`}>
+          {risk === null ? t("review.notReady") : t("common.risk", { level: risk })}
+        </span>
+      </header>
+      {draft === null ? (
+        <section className="review-empty">
+          <p>{t("review.noDraft")}</p>
+          <button type="button" onClick={onReturnToEditor}>{t("review.returnToEditor")}</button>
+        </section>
+      ) : (
+        <>
+          <dl className="review-summary">
+            <div><dt>{t("review.interface")}</dt><dd>{mode === "Guided" ? t("mode.guided") : t("mode.compact")}</dd></div>
+            <div><dt>{t("review.risk")}</dt><dd>{t("common.risk", { level: draft.assessment.level })}</dd></div>
+            <div title={directory?.label}><dt>{t("review.directory")}</dt><dd>{directory?.label ?? t("review.directoryMissing")}</dd></div>
+            <div title={draft.assessment.reviewHash}><dt>{t("review.hash")}</dt><dd><code>{draft.assessment.reviewHash.slice(0, 16)}</code></dd></div>
+          </dl>
+          <section className="review-script" aria-labelledby="review-script-title">
+            <h3 id="review-script-title">{t("review.exactScript")}</h3>
+            <pre>{draft.assessment.script}</pre>
+          </section>
+          <section className="review-evidence" aria-labelledby="review-evidence-title">
+            <h3 id="review-evidence-title">{t("review.evidence")}</h3>
+            {draft.assessment.evidence.length === 0
+              ? <p>{t("review.noEvidence")}</p>
+              : (
+                <ul>
+                  {draft.assessment.evidence.map((evidence) => (
+                    <li key={`${evidence.ruleId}:${evidence.nodeId}`}>{evidence.message}</li>
+                  ))}
+                </ul>
+              )}
+          </section>
+          <section className="review-confirmation" aria-labelledby="review-confirmation-title">
+            <h3 id="review-confirmation-title">{t("review.confirmation")}</h3>
+            <button type="button" onClick={onChooseDirectory} disabled={running} title={directory?.label}>
+              {directory === null
+                ? t("terminal.chooseDirectory")
+                : t("terminal.directory", { directory: directory.label })}
+            </button>
+            {criticalBlocked && <p className="error-text">{t("terminal.criticalGuidedBlocked")}</p>}
+            {risk === "critical" && mode === "Compact" && (
+              <label className="typed-confirmation">
+                {t("terminal.typeConfirmation", { phrase: criticalPhrase })}
+                <input
+                  value={typedConfirmation}
+                  onChange={(event) => onTypedConfirmationChange(event.currentTarget.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+            )}
+          </section>
+          <div className="review-actions">
+            <button type="button" onClick={onReturnToEditor} disabled={running}>{t("review.returnToEditor")}</button>
+            <button
+              className="review-run"
+              type="button"
+              data-primary-run
+              onClick={onRun}
+              disabled={directory === null || running || criticalBlocked || !criticalReady}
+            >
+              {state.status === "starting"
+                ? t("terminal.starting")
+                : risk === "low"
+                  ? t("terminal.run")
+                  : risk === "critical"
+                    ? t("terminal.runCritical")
+                    : t("terminal.confirmRun")}
+            </button>
+            <button type="button" data-primary-cancel onClick={onCancel} disabled={state.status !== "running"}>
+              {t("common.cancel")}
+            </button>
+          </div>
+          {state.status === "exited" && <p className="review-status">{t("terminal.exited", { status: state.exitStatus })}</p>}
+          {state.status === "error" && <p className="error-text" role="alert">{state.message}</p>}
+        </>
+      )}
+    </article>
+  );
+}
+
+function TerminalPanel({
+  draft,
   expanded,
   paneRootRef,
   height,
@@ -1990,11 +2275,12 @@ function TerminalPanel({
   maximumHeight,
   onHeightChange,
   onToggle,
-  onRunningChange,
-  onExecutionFinished
+  sessionId,
+  state,
+  onDimensions,
+  onExit
 }: {
   draft: ExecutionDraft | null;
-  mode: "Guided" | "Compact";
   expanded: boolean;
   paneRootRef: RefObject<HTMLElement | null>;
   height: number;
@@ -2002,79 +2288,13 @@ function TerminalPanel({
   maximumHeight: number;
   onHeightChange: (value: number) => void;
   onToggle: () => void;
-  onRunningChange: (running: boolean) => void;
-  onExecutionFinished: () => void;
+  sessionId: string | null;
+  state: ExecutionState;
+  onDimensions: (columns: number, rows: number) => void;
+  onExit: (exitStatus: number) => void;
 }) {
   const { t } = useI18n();
-  const [directory, setDirectory] = useState<{ token: string; label: string } | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [terminalSize, setTerminalSize] = useState({ columns: 80, rows: 24 });
-  const [typedConfirmation, setTypedConfirmation] = useState("");
-  const [state, setState] = useState<
-    | { status: "idle" }
-    | { status: "starting" }
-    | { status: "running" }
-    | { status: "exited"; exitStatus: number }
-    | { status: "error"; message: string }
-  >({ status: "idle" });
-
-  useEffect(() => {
-    setTypedConfirmation("");
-  }, [draft?.assessment.reviewHash]);
-
-  useEffect(() => {
-    onRunningChange(state.status === "starting" || state.status === "running");
-  }, [onRunningChange, state.status]);
-
   const risk = draft?.assessment.level ?? null;
-  const criticalPolicy = criticalExecutionPolicy(
-    risk,
-    mode,
-    draft?.assessment.reviewHash ?? null,
-    typedConfirmation
-  );
-  const criticalPhrase = criticalPolicy.phrase;
-  const criticalBlocked = criticalPolicy.blocked;
-  const criticalReady = criticalPolicy.ready;
-  const running = state.status === "starting" || state.status === "running";
-
-  const chooseDirectory = () => {
-    void window.commandIde.execution.chooseWorkingDirectory().then((result) => {
-      if (result.status === "selected") {
-        setDirectory({ token: result.token, label: result.label });
-      }
-    }, (error: unknown) => {
-      setState({ status: "error", message: errorMessage(error, t("error.directorySelection")) });
-    });
-  };
-
-  const run = () => {
-    if (draft === null || directory === null || criticalBlocked || !criticalReady) return;
-    setState({ status: "starting" });
-    void window.commandIde.execution.start({
-      program: draft.program,
-      reviewedScript: draft.assessment.script,
-      reviewHash: draft.assessment.reviewHash,
-      interfaceMode: mode.toLowerCase() as "guided" | "compact",
-      confirmed: true,
-      typedConfirmation: risk === "critical" ? typedConfirmation : null,
-      workingDirectoryToken: directory.token,
-      columns: terminalSize.columns,
-      rows: terminalSize.rows
-    }).then((result) => {
-      setSessionId(result.sessionId);
-      setState({ status: "running" });
-    }, (error: unknown) => {
-      setState({ status: "error", message: errorMessage(error, t("error.executionRejected")) });
-    });
-  };
-
-  const cancel = () => {
-    if (sessionId === null) return;
-    void window.commandIde.execution.cancel(sessionId).catch((error: unknown) => {
-      setState({ status: "error", message: errorMessage(error, t("error.cancellation")) });
-    });
-  };
 
   return (
     <section className={`terminal-panel${expanded ? "" : " collapsed"}`} aria-label={t("terminal.label")}>
@@ -2112,78 +2332,17 @@ function TerminalPanel({
         </span>
       </header>
       <div className="terminal-workspace" id="local-terminal-content" hidden={!expanded}>
-        <div className="execution-review">
-          <div className="execution-controls">
-            <button type="button" onClick={chooseDirectory} disabled={running}>
-              {directory === null
-                ? t("terminal.chooseDirectory")
-                : t("terminal.directory", { directory: directory.label })}
-            </button>
-            <button
-              type="button"
-              data-primary-run
-              onClick={run}
-              disabled={draft === null || directory === null || running || criticalBlocked || !criticalReady}
-            >
-              {state.status === "starting"
-                ? t("terminal.starting")
-                : risk === "low"
-                  ? t("terminal.run")
-                  : risk === "critical"
-                    ? t("terminal.runCritical")
-                    : t("terminal.confirmRun")}
-            </button>
-            <button
-              type="button"
-              data-primary-cancel
-              onClick={cancel}
-              disabled={state.status !== "running"}
-            >
-              {t("common.cancel")}
-            </button>
-          </div>
-          {draft !== null && (
-            <details open={risk === "high" || risk === "critical"}>
-              <summary>{t("terminal.review")}</summary>
-              <pre>{draft.assessment.script}</pre>
-              <ul>
-                {draft.assessment.evidence.map((evidence) => (
-                  <li key={`${evidence.ruleId}:${evidence.nodeId}`}>{evidence.message}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {criticalBlocked && (
-            <span className="error-text">{t("terminal.criticalGuidedBlocked")}</span>
-          )}
-          {risk === "critical" && mode === "Compact" && (
-            <label className="typed-confirmation">
-              {t("terminal.typeConfirmation", { phrase: criticalPhrase })}
-              <input
-                value={typedConfirmation}
-                onChange={(event) => setTypedConfirmation(event.currentTarget.value)}
-                autoComplete="off"
-                spellCheck={false}
-              />
-            </label>
-          )}
-          {state.status === "exited" && <span>{t("terminal.exited", {
-            status: state.exitStatus
-          })}</span>}
-          {state.status === "error" && <span className="error-text" role="alert">{state.message}</span>}
-        </div>
+        {sessionId === null && <div className="terminal-empty">{t("terminal.awaitingRun")}</div>}
         <Suspense fallback={<div className="xterm-terminal loading">{t("terminal.loading")}</div>}>
           <XtermTerminal
             sessionId={sessionId}
-            onDimensions={(columns, rows) => setTerminalSize({ columns, rows })}
-            onExit={(exitStatus) => {
-              setState({ status: "exited", exitStatus });
-              setSessionId(null);
-              onExecutionFinished();
-            }}
-            onError={(message) => setState({ status: "error", message })}
+            onDimensions={onDimensions}
+            onExit={onExit}
+            onError={(message) => window.console.error(message)}
           />
         </Suspense>
+        {state.status === "exited" && <span className="terminal-result">{t("terminal.exited", { status: state.exitStatus })}</span>}
+        {state.status === "error" && <span className="terminal-result error-text" role="alert">{state.message}</span>}
       </div>
     </section>
   );
@@ -2520,12 +2679,14 @@ function SettingsView({ desktopEnvironment, onShowOnboarding }: {
   );
 }
 
-function WorkflowGuide({ hasCommand, hasValidatedDraft }: {
+function WorkflowGuide({ hasCommand, hasValidatedDraft, reviewReady, hasRun }: {
   hasCommand: boolean;
   hasValidatedDraft: boolean;
+  reviewReady: boolean;
+  hasRun: boolean;
 }) {
   const { t } = useI18n();
-  const states = workflowProgress(hasCommand, hasValidatedDraft);
+  const states = workflowProgress(hasCommand, hasValidatedDraft, reviewReady, hasRun);
   const steps = [
     { title: "workflow.choose.title", description: "workflow.choose.description" },
     { title: "workflow.build.title", description: "workflow.build.description" },
