@@ -7,6 +7,7 @@ import { App } from "./App";
 import { I18nProvider } from "./i18n";
 import { ThemeProvider } from "./theme";
 import { installFrameBoundedResizeObserver } from "./frame-resize-observer";
+import { rendererLog, rendererErrorContext } from "./structured-logger";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 
@@ -32,6 +33,15 @@ async function mountRenderer() {
       </ThemeProvider>
     </StrictMode>
   );
+  rendererLog.info("renderer.mounted", {
+    version: __COMMAND_IDE_VERSION__,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+    performanceProbe: Renderer !== App
+  });
 }
 
-void mountRenderer();
+void mountRenderer().catch((error: unknown) => {
+  rendererLog.error("renderer.mount_failed", rendererErrorContext(error));
+  throw error;
+});

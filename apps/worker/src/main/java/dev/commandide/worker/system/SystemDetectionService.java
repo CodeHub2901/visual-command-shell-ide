@@ -3,6 +3,7 @@
 
 package dev.commandide.worker.system;
 
+import dev.commandide.worker.logging.StructuredLog;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -75,7 +76,7 @@ public final class SystemDetectionService {
                     || (family.equals("fedora") && versionId.equals("44"));
             return new DistroTarget(id, versionId, prettyName, family, supported);
         } catch (IOException exception) {
-            System.err.println("Unable to read /etc/os-release: " + exception.getMessage());
+            StructuredLog.warn("system.os_release_unavailable", null, StructuredLog.errorContext(exception));
             return null;
         }
     }

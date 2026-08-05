@@ -69,6 +69,7 @@ import {
   ONBOARDING_STORAGE_KEY,
   ONBOARDING_STORAGE_VALUE
 } from "./onboarding-preference";
+import { rendererErrorContext, rendererLog } from "./structured-logger";
 
 const MonacoBashEditor = lazy(async () => ({
   default: (await import("./MonacoBashEditor")).MonacoBashEditor
@@ -251,6 +252,19 @@ export function App() {
   const previousLayoutBand = useRef(layoutBand);
   const paneBounds = paneSizeBounds(viewport);
 
+  useEffect(() => {
+    rendererLog.info("workspace.changed", {
+      workspace,
+      commandView,
+      interfaceMode: mode.toLowerCase(),
+      layoutBand
+    });
+  }, [workspace, commandView, mode, layoutBand]);
+
+  useEffect(() => {
+    if (selectedId !== null) rendererLog.info("command.selected", { commandId: selectedId });
+  }, [selectedId]);
+
   const commitPaneSize = (pane: keyof PaneSizes, value: number) => {
     setPaneSizes((current) => clampPaneSizes({ ...current, [pane]: value }, viewport));
   };
@@ -277,6 +291,7 @@ export function App() {
     window.commandIde.system.desktopEnvironment().then((profile) => {
       if (active) setDesktopEnvironment({ status: "ready", profile });
     }, (error: unknown) => {
+      rendererLog.error("desktop_environment.load_failed", rendererErrorContext(error));
       if (active) setDesktopEnvironment({
         status: "error",
         message: errorMessage(error, t("error.desktopEnvironment"))
@@ -406,11 +421,11 @@ export function App() {
         const profile = await window.commandIde.system.detect();
         if (active) setSystem({ status: "ready", result: profile });
       } catch (error: unknown) {
-        console.error("System detection failed", error);
+        rendererLog.error("system.detect_failed", rendererErrorContext(error));
         if (active) setSystem({ status: "error", message: errorMessage(error, t("error.systemDetection")) });
       }
     }, (error: unknown) => {
-      console.error("Worker health check failed", error);
+      rendererLog.error("worker.health_failed", rendererErrorContext(error));
       if (active) {
         setHealth({ status: "error", message: errorMessage(error, t("error.workerHealth")) });
         setSystem({ status: "error", message: t("error.workerUnavailable") });
@@ -425,6 +440,7 @@ export function App() {
     window.commandIde.projects.list(8).then((result) => {
       if (active) setProjects({ status: "ready", projects: result.projects });
     }, (error: unknown) => {
+      rendererLog.error("projects.list_failed", rendererErrorContext(error));
       if (active) setProjects({ status: "error", message: errorMessage(error, t("error.projectList")) });
     });
     return () => { active = false; };
@@ -443,7 +459,7 @@ export function App() {
             : null
         );
       }, (error: unknown) => {
-        console.error("Catalog search failed", error);
+        rendererLog.error("catalog.search_failed", rendererErrorContext(error));
         if (active) setCatalog({ status: "error", message: errorMessage(error, t("error.catalogSearch")) });
       });
     }, 120);
@@ -458,7 +474,7 @@ export function App() {
     window.commandIde.catalog.discover(5000, refresh).then((result) => {
       setDiscovery({ status: "ready", result });
     }, (error: unknown) => {
-      console.error("PATH discovery failed", error);
+      rendererLog.error("catalog.discovery_failed", rendererErrorContext(error));
       setDiscovery({ status: "error", message: errorMessage(error, t("error.pathDiscovery")) });
     });
   };
@@ -472,7 +488,7 @@ export function App() {
     window.commandIde.catalog.search("", 100).then((result) => {
       if (active) setLanguageCommands(result.commands);
     }, (error: unknown) => {
-      console.error("Editor catalog loading failed", error);
+      rendererLog.error("editor.catalog_failed", rendererErrorContext(error));
     });
     return () => { active = false; };
   }, []);
@@ -493,7 +509,7 @@ export function App() {
     window.commandIde.manual.get(selected.id).then((result) => {
       if (active) setManual({ status: "ready", result });
     }, (error: unknown) => {
-      console.error("Manual retrieval failed", error);
+      rendererLog.error("manual.load_failed", rendererErrorContext(error));
       if (active) setManual({ status: "error", message: errorMessage(error, t("error.manualRetrieval")) });
     });
     return () => { active = false; };
@@ -502,6 +518,13 @@ export function App() {
   const terminalRunning = executionState.status === "starting" || executionState.status === "running";
   const currentSaveState = draftSaveState(loadedProject?.program ?? null, executionDraft?.program ?? null);
   const risk = executionDraft?.assessment.level ?? null;
+  useEffect(() => {
+    rendererLog.info("execution.state_changed", {
+      status: executionState.status,
+      sessionId,
+      riskLevel: risk ?? "none"
+    });
+  }, [executionState.status, sessionId, risk]);
   const criticalPolicy = criticalExecutionPolicy(
     risk,
     mode,
@@ -529,6 +552,7 @@ export function App() {
       return;
     }
     if (!mayReplaceCurrentDraft()) return;
+    rendererLog.info("command.selection_requested", { commandId: id, interfaceMode: mode.toLowerCase() });
     setExecutionDraft(null);
     setLoadedProject(null);
     setWorkingDirectory(null);
@@ -543,6 +567,11 @@ export function App() {
   const openProject = (project: ScriptProject) => {
     const firstCommand = findCommand(project.program);
     const nextMode = firstCommand === undefined ? "Compact" : "Guided";
+    rendererLog.info("project.opened", {
+      projectId: project.projectId,
+      interfaceMode: nextMode.toLowerCase(),
+      hasRecognizedCommand: firstCommand !== undefined
+    });
     setExecutionDraft(null);
     setLoadedProject(project);
     setWorkingDirectory(null);
@@ -557,15 +586,23 @@ export function App() {
   const chooseDirectory = () => {
     void window.commandIde.execution.chooseWorkingDirectory().then((result) => {
       if (result.status === "selected") {
+        rendererLog.info("execution.directory_selected", { status: result.status });
         setWorkingDirectory({ token: result.token, label: result.label });
       }
     }, (error: unknown) => {
+      rendererLog.error("execution.directory_failed", rendererErrorContext(error));
       setExecutionState({ status: "error", message: errorMessage(error, t("error.directorySelection")) });
     });
   };
 
   const runExecution = () => {
     if (!reviewReady || executionDraft === null || workingDirectory === null) return;
+    rendererLog.info("execution.start_requested", {
+      riskLevel: risk ?? "none",
+      interfaceMode: mode.toLowerCase(),
+      columns: terminalSize.columns,
+      rows: terminalSize.rows
+    });
     setExecutionState({ status: "starting" });
     setTerminalExpanded(true);
     void window.commandIde.execution.start({
@@ -579,16 +616,23 @@ export function App() {
       columns: terminalSize.columns,
       rows: terminalSize.rows
     }).then((result) => {
+      rendererLog.info("execution.started", { sessionId: result.sessionId });
       setSessionId(result.sessionId);
       setExecutionState({ status: "running" });
     }, (error: unknown) => {
+      rendererLog.error("execution.start_failed", rendererErrorContext(error));
       setExecutionState({ status: "error", message: errorMessage(error, t("error.executionRejected")) });
     });
   };
 
   const cancelExecution = () => {
     if (sessionId === null) return;
+    rendererLog.info("execution.cancel_requested", { sessionId });
     void window.commandIde.execution.cancel(sessionId).catch((error: unknown) => {
+      rendererLog.error("execution.cancel_failed", {
+        sessionId,
+        ...rendererErrorContext(error)
+      });
       setExecutionState({ status: "error", message: errorMessage(error, t("error.cancellation")) });
     });
   };
@@ -2338,7 +2382,7 @@ function TerminalPanel({
             sessionId={sessionId}
             onDimensions={onDimensions}
             onExit={onExit}
-            onError={(message) => window.console.error(message)}
+            onError={(message) => rendererLog.error("terminal.error", { errorMessageCharacters: message.length })}
           />
         </Suspense>
         {state.status === "exited" && <span className="terminal-result">{t("terminal.exited", { status: state.exitStatus })}</span>}

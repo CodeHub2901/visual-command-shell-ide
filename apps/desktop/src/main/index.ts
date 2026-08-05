@@ -173,6 +173,11 @@ import {
 import { atomicWriteUtf8, readBoundedUtf8 } from "./file-operations";
 import { copyGeneratedCommand } from "./clipboard-operations";
 import { createDesktopStartupPlan } from "./linux-startup";
+import {
+  logErrorContext,
+  StructuredLogger,
+  type LogLevel
+} from "./structured-logger";
 
 const HEALTH_CHANNEL = "cmd-ide:health-check";
 const SYSTEM_CHANNEL = "cmd-ide:system-detect";
@@ -220,6 +225,7 @@ const EXECUTION_EVENT_CHANNEL = "cmd-ide:execution-event";
 const HISTORY_LIST_CHANNEL = "cmd-ide:history-list";
 let mainWindow: BrowserWindow | null = null;
 let worker: WorkerSupervisor | null = null;
+let logger: StructuredLogger | null = null;
 const workingDirectories = new Map<string, string>();
 
 function readLinuxDmiIdentity(): string {
@@ -270,6 +276,9 @@ function createWindow(): BrowserWindow {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+  window.webContents.on("console-message", (details) => {
+    logger?.ingestRendererMessage(details.message, details.level);
+  });
   window.once("ready-to-show", () => window.show());
   window.webContents.once("did-finish-load", () => {
     const responsiveCaptureDirectory = process.env.CMD_IDE_RESPONSIVE_CAPTURE_DIR;
@@ -1473,7 +1482,7 @@ async function waitForRendererCondition(
   throw new Error(`Renderer condition timed out: ${expression}`);
 }
 
-function startWorker(): WorkerSupervisor {
+function startWorker(activeLogger: StructuredLogger): WorkerSupervisor {
   const workerJar = resolveWorkerJar();
   if (!fs.existsSync(workerJar)) {
     throw new Error(`Java worker JAR does not exist: ${workerJar}`);
@@ -1483,13 +1492,18 @@ function startWorker(): WorkerSupervisor {
     const client = new WorkerClient({
       javaExecutable: resolveJavaExecutable(),
       workerJar,
+      logger: activeLogger,
       environment: {
         CMD_IDE_DATA_DIR: process.env.CMD_IDE_DATA_DIR ?? app.getPath("userData"),
+        CMD_IDE_LOG_LEVEL: activeLogger.level,
         ...bundledBashLanguageServerEnvironment(app.getAppPath(), process.execPath)
       }
     });
-    client.on("workerLog", (message: string) => process.stderr.write(`[worker] ${message}`));
-    client.on("workerError", (error: Error) => process.stderr.write(`[worker-error] ${error.message}\n`));
+    client.on("workerLog", (message: string) => activeLogger.ingestWorkerLine(message));
+    client.on("workerError", (error: Error) => {
+      activeLogger.error("worker.error", logErrorContext(error));
+      process.stderr.write(`[worker-error] ${error.message}\n`);
+    });
     client.on("notification", (notification: JsonRpcNotification) => {
       try {
         if (notification.method === EXECUTION_EVENT_METHOD) {
@@ -1506,8 +1520,10 @@ function startWorker(): WorkerSupervisor {
           }
           return;
         }
+        activeLogger.error("worker.notification.unexpected", { method: notification.method });
         process.stderr.write(`[worker-error] Unexpected notification method: ${notification.method}\n`);
       } catch (error: unknown) {
+        activeLogger.error("worker.notification.invalid", logErrorContext(error));
         process.stderr.write(`[worker-error] Invalid worker notification: ${String(error)}\n`);
       }
     });
@@ -2018,7 +2034,25 @@ function ensureExportExtension(filePath: string, format: "project" | "bash" | "m
 }
 
 app.whenReady().then(() => {
-  worker = startWorker();
+  app.setAppLogsPath();
+  logger = new StructuredLogger({
+    component: "electron-main",
+    directory: process.env.CMD_IDE_LOG_DIR === undefined
+      ? app.getPath("logs")
+      : path.resolve(process.env.CMD_IDE_LOG_DIR),
+    level: resolveLogLevel(process.env.CMD_IDE_LOG_LEVEL),
+    mirrorToStderr: process.env.CMD_IDE_LOG_STDERR === "1"
+  });
+  logger.info("application.starting", {
+    version: app.getVersion(),
+    platform: process.platform,
+    architecture: process.arch,
+    packaged: app.isPackaged,
+    ozonePlatformHint: desktopStartupPlan.ozonePlatformHint ?? "none",
+    hardwareAccelerationDisabled: desktopStartupPlan.disableHardwareAcceleration
+  });
+  process.stderr.write(`[command-ide] structured log: ${logger.filePath}\n`);
+  worker = startWorker(logger);
   const locale = resolveSupportedLocale([
     ...app.getPreferredSystemLanguages(),
     app.getLocale()
@@ -2032,6 +2066,7 @@ app.whenReady().then(() => {
     }
   });
 }).catch((error: unknown) => {
+  logger?.error("application.startup_failed", logErrorContext(error));
   process.stderr.write(`Application startup failed: ${String(error)}\n`);
   app.exit(1);
 });
@@ -2043,6 +2078,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  logger?.info("application.stopping");
   ipcMain.removeHandler(HEALTH_CHANNEL);
   ipcMain.removeHandler(SYSTEM_CHANNEL);
   ipcMain.removeHandler(DESKTOP_ENVIRONMENT_CHANNEL);
@@ -2088,4 +2124,9 @@ app.on("before-quit", () => {
   workingDirectories.clear();
   worker?.shutdown();
   worker = null;
+  logger?.flush();
 });
+
+function resolveLogLevel(value: string | undefined): LogLevel {
+  return value === "debug" || value === "warn" || value === "error" ? value : "info";
+}

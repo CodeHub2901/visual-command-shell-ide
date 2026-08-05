@@ -150,6 +150,10 @@ candidate and release metadata file.
 - Terminal input is never stored, and untrusted OSC controls are stripped before xterm rendering.
 - AI providers can create reviewable proposals but cannot execute commands.
 - Credentials and terminal secrets are never stored in SQLite.
+- Structured diagnostic logs remain local, rotate at 5 MiB, correlate
+  renderer/Electron/Java flow, and redact commands, source, credentials,
+  terminal input, paths, and free text by default. See
+  [structured logging](docs/architecture/structured-logging.md).
 
 Please report vulnerabilities according to [SECURITY.md](SECURITY.md).
 

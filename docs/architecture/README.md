@@ -190,3 +190,6 @@ are recorded in `docs/architecture/performance-budgets.md`; native build and
 packaged-runtime verification are documented in `docs/release/building-linux.md`.
 The typed shared UI catalog, locale selection, fallback, plural, and formatting
 rules are documented in `docs/architecture/localization.md`.
+The correlated renderer, Electron, and Java event envelope, local retention,
+levels, and redaction boundary are documented in
+`docs/architecture/structured-logging.md`.

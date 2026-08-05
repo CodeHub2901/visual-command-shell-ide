@@ -16,6 +16,13 @@ import {
   type JsonRpcResponse
 } from "@cmd-ide/contracts";
 import { encodeFrame, FrameDecoder } from "./framing";
+import {
+  logErrorContext,
+  summarizeForLog,
+  type LogContext,
+  type LogLevel,
+  type StructuredLogger
+} from "../structured-logger";
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -23,6 +30,9 @@ interface PendingRequest {
   timeout: NodeJS.Timeout;
   signal?: AbortSignal;
   abortListener?: () => void;
+  method: string;
+  startedAt: number;
+  logLevel: LogLevel;
 }
 
 export interface WorkerClientOptions {
@@ -30,6 +40,7 @@ export interface WorkerClientOptions {
   workerJar: string;
   requestTimeoutMs?: number;
   environment?: NodeJS.ProcessEnv;
+  logger?: StructuredLogger;
 }
 
 export interface WorkerRequestOptions {
@@ -42,11 +53,14 @@ export class WorkerClient extends EventEmitter {
   private readonly decoder = new FrameDecoder();
   private readonly pending = new Map<JsonRpcId, PendingRequest>();
   private readonly requestTimeoutMs: number;
+  private readonly logger: StructuredLogger | undefined;
+  private stderrBuffer = "";
   private closed = false;
 
   constructor(options: WorkerClientOptions) {
     super();
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
+    this.logger = options.logger;
     this.child = spawn(options.javaExecutable, ["-jar", options.workerJar], {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
@@ -57,12 +71,21 @@ export class WorkerClient extends EventEmitter {
       }
     });
 
-    this.child.stdout.on("data", (chunk: Buffer) => this.onStdout(chunk));
-    this.child.stderr.on("data", (chunk: Buffer) => {
-      this.emit("workerLog", chunk.toString("utf8"));
+    this.logger?.info("worker.spawned", {
+      pid: this.child.pid ?? null,
+      requestTimeoutMs: this.requestTimeoutMs
     });
+
+    this.child.stdout.on("data", (chunk: Buffer) => this.onStdout(chunk));
+    this.child.stderr.on("data", (chunk: Buffer) => this.onStderr(chunk));
     this.child.on("error", (error) => this.closeWithError(error));
     this.child.on("exit", (code, signal) => {
+      this.flushStderr();
+      if (this.closed) {
+        this.logger?.info("worker.exited", { code, signal: signal ?? "none", expected: true });
+      } else {
+        this.logger?.warn("worker.exited", { code, signal: signal ?? "none", expected: false });
+      }
       this.closeWithError(
         new Error(`Java worker exited (code=${String(code)}, signal=${String(signal)})`)
       );
@@ -83,17 +106,29 @@ export class WorkerClient extends EventEmitter {
 
     const id = randomUUID();
     const request = { jsonrpc: "2.0", id, method, params } as const;
+    const startedAt = performance.now();
+    const logLevel = highFrequencyMethod(method) ? "debug" : "info";
+    this.log(logLevel, "rpc.request.started", { method, params: summarizeForLog(params) }, id);
 
     return await new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         const pending = this.takePending(id);
-        pending?.reject(new Error(`Java worker request timed out: ${method}`));
+        if (pending !== undefined) {
+          this.logger?.warn("rpc.request.timeout", {
+            method,
+            durationMs: elapsedMilliseconds(startedAt)
+          }, id);
+          pending.reject(new Error(`Java worker request timed out: ${method}`));
+        }
       }, options.timeoutMs ?? this.requestTimeoutMs);
 
       const pending: PendingRequest = {
         resolve: (value) => resolve(value as T),
         reject,
-        timeout
+        timeout,
+        method,
+        startedAt,
+        logLevel
       };
       if (options.signal !== undefined) {
         const abortListener = () => {
@@ -102,6 +137,10 @@ export class WorkerClient extends EventEmitter {
             return;
           }
           this.sendNotification(CANCEL_REQUEST_METHOD, { requestId: id });
+          this.log(logLevel, "rpc.request.cancelled", {
+            method,
+            durationMs: elapsedMilliseconds(startedAt)
+          }, id);
           aborted.reject(abortError());
         };
         pending.signal = options.signal;
@@ -114,6 +153,11 @@ export class WorkerClient extends EventEmitter {
         if (error) {
           const pending = this.takePending(id);
           if (pending !== undefined) {
+            this.logger?.error("rpc.request.write_failed", {
+              method,
+              durationMs: elapsedMilliseconds(startedAt),
+              ...logErrorContext(error)
+            }, id);
             pending.reject(error);
           }
         }
@@ -152,6 +196,23 @@ export class WorkerClient extends EventEmitter {
     }
   }
 
+  private onStderr(chunk: Buffer): void {
+    this.stderrBuffer += chunk.toString("utf8");
+    let newline = this.stderrBuffer.indexOf("\n");
+    while (newline >= 0) {
+      const line = this.stderrBuffer.slice(0, newline).replace(/\r$/u, "");
+      this.stderrBuffer = this.stderrBuffer.slice(newline + 1);
+      if (line.length > 0) this.emit("workerLog", line);
+      newline = this.stderrBuffer.indexOf("\n");
+    }
+  }
+
+  private flushStderr(): void {
+    const line = this.stderrBuffer.replace(/\r$/u, "");
+    this.stderrBuffer = "";
+    if (line.length > 0) this.emit("workerLog", line);
+  }
+
   private handleResponse(response: JsonRpcResponse): void {
     if (response.id === null) {
       this.emit(
@@ -168,8 +229,19 @@ export class WorkerClient extends EventEmitter {
     }
 
     if ("error" in response) {
+      this.logger?.warn("rpc.request.failed", {
+        method: pending.method,
+        durationMs: elapsedMilliseconds(pending.startedAt),
+        errorCode: response.error.code,
+        errorMessage: response.error.message
+      }, String(response.id));
       pending.reject(new Error(`Worker error ${response.error.code}: ${response.error.message}`));
     } else {
+      this.log(pending.logLevel, "rpc.request.completed", {
+        method: pending.method,
+        durationMs: elapsedMilliseconds(pending.startedAt),
+        result: summarizeForLog(response.result)
+      }, String(response.id));
       pending.resolve(response.result);
     }
   }
@@ -179,6 +251,7 @@ export class WorkerClient extends EventEmitter {
       return;
     }
     this.closed = true;
+    this.logger?.error("worker.connection_failed", logErrorContext(error));
     this.rejectAll(error);
     this.emit("workerError", error);
   }
@@ -211,10 +284,26 @@ export class WorkerClient extends EventEmitter {
     }
     return pending;
   }
+
+  private log(level: LogLevel, event: string, context: LogContext, correlationId: string): void {
+    this.logger?.[level](event, context, correlationId);
+  }
 }
 
 function abortError(): Error {
   const error = new Error("Java worker request was cancelled");
   error.name = "AbortError";
   return error;
+}
+
+function highFrequencyMethod(method: string): boolean {
+  return method === "v1.execution.input"
+    || method === "v1.execution.resize"
+    || method === "v1.language.change"
+    || method === "v1.language.completion"
+    || method === "v1.language.hover";
+}
+
+function elapsedMilliseconds(startedAt: number): number {
+  return Math.round((performance.now() - startedAt) * 10) / 10;
 }
