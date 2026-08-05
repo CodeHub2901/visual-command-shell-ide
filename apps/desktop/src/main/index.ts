@@ -341,6 +341,10 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
     [2560, 1440]
   ] as const;
   const debugCapture = process.env.CMD_IDE_RESPONSIVE_DEBUG === "1";
+  const requestedTheme = process.env.CMD_IDE_RESPONSIVE_THEME;
+  if (requestedTheme !== undefined && requestedTheme !== "dark" && requestedTheme !== "light") {
+    throw new Error("CMD_IDE_RESPONSIVE_THEME must be either dark or light");
+  }
   const requestedDebugZoom = Number(process.env.CMD_IDE_RESPONSIVE_DEBUG_ZOOM ?? "1");
   const debugZoom = Number.isFinite(requestedDebugZoom) && requestedDebugZoom > 0 ? requestedDebugZoom : 1;
   const sizes: ReadonlyArray<readonly [number, number]> = debugCapture ? [fullSizes[0]] : fullSizes;
@@ -373,6 +377,12 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
     window,
     "document.querySelector('.command-result[data-command-id=\"ls\"]') !== null"
   );
+  if (requestedTheme !== undefined) {
+    await window.webContents.executeJavaScript(`
+      document.documentElement.dataset.theme = ${JSON.stringify(requestedTheme)};
+      document.documentElement.style.colorScheme = ${JSON.stringify(requestedTheme)};
+    `);
+  }
   await window.webContents.executeJavaScript(`
     document.querySelector('.command-result[data-command-id="ls"]')?.click()
   `);
@@ -407,6 +417,12 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
           20_000
         );
         await settleResponsiveLayout(window);
+        if (requestedTheme !== undefined) {
+          await window.webContents.executeJavaScript(`
+            document.documentElement.dataset.theme = ${JSON.stringify(requestedTheme)};
+            document.documentElement.style.colorScheme = ${JSON.stringify(requestedTheme)};
+          `);
+        }
         const metrics = await collectResponsiveMetrics(window, workspace.id, workspace.railId);
         const image = await window.webContents.capturePage();
         const file = `${workspace.id}__${requestedSize[0]}x${requestedSize[1]}__${Math.round(zoomFactor * 100)}pct.png`;

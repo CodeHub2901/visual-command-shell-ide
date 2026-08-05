@@ -55,6 +55,29 @@ canvas node and viewport transform, terminal instance, and workspace scroll
 state survive. It also opens compact drawers from the keyboard, closes them
 with Escape, and checks focus restoration.
 
+## Translucent material review - 2026-08-05
+
+The dark and light appearances now use a clearer macOS-inspired material
+hierarchy. Sidebar, toolbar, and panel fills transmit more of the shared
+blue/violet/teal canvas, while controls and the terminal remain progressively
+denser for legibility. Primary shell glass uses a bounded 34 px blur with
+higher saturation; content cards use a bounded 24 px blur. Thin illuminated
+top edges and lighter shadows provide separation without returning to opaque
+boxed panels.
+
+Automated theme tests cap the core material opacities, require raised surfaces
+to remain denser than content glass, verify the blur and opaque fallback, and
+retain WCAG AA contrast for semantic text. Terminal status colors are isolated
+from the surrounding theme because the terminal remains dark in both
+appearances.
+
+Targeted Electron screenshots were visually reviewed in explicit Dark and
+Light appearances at the compact 980x640 boundary. The complete default-theme
+matrix then passed with 162 screenshots and 108 additional 125%/175% scaling
+states. For focused material review, the screenshot harness accepts
+`CMD_IDE_RESPONSIVE_THEME=dark` or `CMD_IDE_RESPONSIVE_THEME=light` together
+with its existing debug workspace controls.
+
 ## Command-workspace redesign review — 2026-08-05
 
 The navigation redesign replaces the separate Catalog, Manual, Visual Builder,

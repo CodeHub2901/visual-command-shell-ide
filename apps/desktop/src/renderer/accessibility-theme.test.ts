@@ -32,6 +32,14 @@ function contrastRatio(first: string, second: string): number {
     / (Math.min(firstLuminance, secondLuminance) + 0.05);
 }
 
+function materialOpacity(theme: "dark" | "light", token: string): number {
+  const block = new RegExp(`:root\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`).exec(styles)?.[1];
+  if (block === undefined) throw new Error(`Missing ${theme} theme block`);
+  const value = new RegExp(`--${token}:\\s*rgb\\([^/]+/\\s*(\\d+)%\\)`).exec(block)?.[1];
+  if (value === undefined) throw new Error(`Missing ${theme} --${token} translucent material token`);
+  return Number.parseInt(value, 10) / 100;
+}
+
 describe("accessible visual tokens", () => {
   it.each(["dark", "light"] as const)("keeps %s semantic text above WCAG AA contrast", (theme) => {
     const canvas = themeToken(theme, "app-canvas");
@@ -53,5 +61,21 @@ describe("accessible visual tokens", () => {
     expect(styles).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/u);
     expect(styles).toMatch(/@media\s*\(forced-colors:\s*active\)/u);
     expect(styles).toMatch(/outline:\s*2px\s+solid\s+Highlight/u);
+  });
+
+  it.each(["dark", "light"] as const)("keeps %s primary glass materials visibly translucent", (theme) => {
+    expect(materialOpacity(theme, "material-sidebar")).toBeLessThanOrEqual(0.58);
+    expect(materialOpacity(theme, "material-toolbar")).toBeLessThanOrEqual(0.52);
+    expect(materialOpacity(theme, "material-panel")).toBeLessThanOrEqual(0.48);
+    expect(materialOpacity(theme, "material-raised")).toBeGreaterThan(
+      materialOpacity(theme, "material-panel")
+    );
+  });
+
+  it("uses bounded high-saturation blur and an opaque fallback", () => {
+    expect(styles).toMatch(/--glass-blur:\s*blur\(34px\)\s+saturate\(1[67][05]%\)/u);
+    expect(styles).toMatch(/--glass-panel-blur:\s*blur\(24px\)\s+saturate\(1[56][05]%\)/u);
+    expect(styles).toMatch(/@supports not \(\(backdrop-filter:/u);
+    expect(styles).toMatch(/background:\s*var\(--material-solid\)/u);
   });
 });
