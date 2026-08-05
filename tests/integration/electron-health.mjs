@@ -4,6 +4,7 @@
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { electronLaunchPlan } from "./electron-launch.mjs";
@@ -20,6 +21,12 @@ const bundledJavaExecutable = path.join(
   "runtime",
   "bin",
   process.platform === "win32" ? "java.exe" : "java"
+);
+const structuredLogDirectory = path.join(
+  repositoryRoot,
+  "work",
+  "electron-smoke-logs",
+  `${process.pid}-${Date.now()}`
 );
 
 const isLinux = process.platform === "linux";
@@ -38,6 +45,7 @@ const child = spawn(command, args, {
     CMD_IDE_JAVA: bundledJavaExecutable,
     CMD_IDE_SMOKE_TEST: "1",
     CMD_IDE_DATA_DIR: path.join(repositoryRoot, "work", "electron-smoke-data"),
+    CMD_IDE_LOG_DIR: structuredLogDirectory,
     ELECTRON_ENABLE_LOGGING: "1"
   },
   stdio: ["ignore", "pipe", "pipe"]
@@ -106,5 +114,35 @@ const canvasMeasurement = applicationOutput.match(
   /Interactive React Flow large-canvas: render \d+(?:\.\d+)? ms, zoom p95 \d+(?:\.\d+)? ms \(1,000 nodes\)\./i
 );
 assert.ok(canvasMeasurement);
+const structuredLogPath = path.join(structuredLogDirectory, "command-ide.jsonl");
+assert.ok(fs.existsSync(structuredLogPath), "Electron did not create its structured log");
+const structuredLogText = fs.readFileSync(structuredLogPath, "utf8");
+const structuredRecords = structuredLogText.trim().split("\n").map((line) => JSON.parse(line));
+const components = new Set(structuredRecords.map((record) => record.component));
+assert.deepEqual(
+  [...components].sort(),
+  ["electron-main", "java-worker", "renderer"],
+  "Structured smoke log did not contain all three application components"
+);
+const correlationComponents = new Map();
+for (const record of structuredRecords) {
+  if (typeof record.correlationId !== "string") continue;
+  const recordComponents = correlationComponents.get(record.correlationId) ?? new Set();
+  recordComponents.add(record.component);
+  correlationComponents.set(record.correlationId, recordComponents);
+}
+assert.ok(
+  [...correlationComponents.values()].some((recordComponents) =>
+    recordComponents.has("electron-main") && recordComponents.has("java-worker")
+  ),
+  "No request correlation ID crossed both Electron and Java"
+);
+assert.doesNotMatch(structuredLogText, /ls -al \./i, "Generated command leaked into structured logs");
+assert.doesNotMatch(
+  structuredLogText,
+  new RegExp(repositoryRoot.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "iu"),
+  "Repository path leaked into structured logs"
+);
 process.stdout.write(`${canvasMeasurement[0]}\n`);
+process.stdout.write(`Structured renderer/Electron/Java logging validated with ${structuredRecords.length} records.\n`);
 process.stdout.write("Electron renderer-to-Java catalog/manual/editor/clipboard/semantic-graph/xterm/history/generator/parser/risk smoke passed.\n");

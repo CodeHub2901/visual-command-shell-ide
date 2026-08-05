@@ -5,28 +5,30 @@ package dev.commandide.worker;
 
 import dev.commandide.worker.protocol.FramedJsonRpcServer;
 import dev.commandide.worker.persistence.DatabaseManager;
+import dev.commandide.worker.logging.StructuredLog;
 import java.nio.file.Path;
+import java.util.Map;
 
 public final class CommandIdeWorker {
     private CommandIdeWorker() {}
 
     public static void main(String[] args) {
         Thread.currentThread().setName("command-ide-worker-main");
-        System.err.println("Command IDE Java worker 0.1.0-beta.1 starting");
+        StructuredLog.info("worker.starting", null, Map.of(
+                "version", "0.1.0-beta.1",
+                "pid", ProcessHandle.current().pid()));
 
         try {
             Path dataDirectory = resolveDataDirectory();
             DatabaseManager database = new DatabaseManager(dataDirectory.resolve("command-ide.sqlite3"));
             DatabaseManager.RecoveryResult recovery = database.initializeWithRecovery();
             if (recovery.recovered()) {
-                System.err.println(
-                        "Recovered a corrupt local database; preserved backup "
-                                + recovery.backupFileName());
+                StructuredLog.warn("database.recovered", null, Map.of(
+                        "backupFileName", recovery.backupFileName()));
             }
             new FramedJsonRpcServer(System.in, System.out, database).run();
         } catch (Exception exception) {
-            System.err.println("Java worker terminated after a protocol failure: " + exception.getMessage());
-            exception.printStackTrace(System.err);
+            StructuredLog.error("worker.terminated", null, StructuredLog.errorContext(exception));
             System.exit(1);
         }
     }

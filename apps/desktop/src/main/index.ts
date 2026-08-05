@@ -173,6 +173,11 @@ import {
 import { atomicWriteUtf8, readBoundedUtf8 } from "./file-operations";
 import { copyGeneratedCommand } from "./clipboard-operations";
 import { createDesktopStartupPlan } from "./linux-startup";
+import {
+  logErrorContext,
+  StructuredLogger,
+  type LogLevel
+} from "./structured-logger";
 
 const HEALTH_CHANNEL = "cmd-ide:health-check";
 const SYSTEM_CHANNEL = "cmd-ide:system-detect";
@@ -220,6 +225,7 @@ const EXECUTION_EVENT_CHANNEL = "cmd-ide:execution-event";
 const HISTORY_LIST_CHANNEL = "cmd-ide:history-list";
 let mainWindow: BrowserWindow | null = null;
 let worker: WorkerSupervisor | null = null;
+let logger: StructuredLogger | null = null;
 const workingDirectories = new Map<string, string>();
 
 function readLinuxDmiIdentity(): string {
@@ -270,6 +276,9 @@ function createWindow(): BrowserWindow {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+  window.webContents.on("console-message", (details) => {
+    logger?.ingestRendererMessage(details.message, details.level);
+  });
   window.once("ready-to-show", () => window.show());
   window.webContents.once("did-finish-load", () => {
     const responsiveCaptureDirectory = process.env.CMD_IDE_RESPONSIVE_CAPTURE_DIR;
@@ -314,7 +323,9 @@ function createWindow(): BrowserWindow {
 
 type ResponsiveWorkspace = {
   id: string;
+  railId: string;
   readySelector: string;
+  tabLabel?: string;
 };
 
 type ResponsiveCaptureResult = {
@@ -330,7 +341,7 @@ type ResponsiveCaptureResult = {
 };
 
 async function captureResponsiveVerification(window: BrowserWindow, outputDirectory: string): Promise<void> {
-  const sizes = [
+  const fullSizes = [
     [980, 640],
     [1024, 768],
     [1366, 768],
@@ -338,28 +349,53 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
     [1920, 1080],
     [2560, 1440]
   ] as const;
-  const zoomFactors = [1, 1.5, 2] as const;
-  const additionalZoomFactors = [1.25, 1.75] as const;
-  const workspaces: readonly ResponsiveWorkspace[] = [
-    { id: "catalog", readySelector: ".health-card" },
-    { id: "visual-builder", readySelector: ".guided-builder .react-flow__node" },
-    { id: "script-editor", readySelector: ".compact-editor .monaco-editor" },
-    { id: "manual", readySelector: ".manual-documentation" },
-    { id: "ai-assistant", readySelector: ".ai-view" },
-    { id: "bookmarks", readySelector: ".bookmarks-view" },
-    { id: "history", readySelector: ".history-view" },
-    { id: "settings", readySelector: ".settings-view" }
+  const debugCapture = process.env.CMD_IDE_RESPONSIVE_DEBUG === "1";
+  const requestedTheme = process.env.CMD_IDE_RESPONSIVE_THEME;
+  if (requestedTheme !== undefined && requestedTheme !== "dark" && requestedTheme !== "light") {
+    throw new Error("CMD_IDE_RESPONSIVE_THEME must be either dark or light");
+  }
+  const requestedDebugZoom = Number(process.env.CMD_IDE_RESPONSIVE_DEBUG_ZOOM ?? "1");
+  const debugZoom = Number.isFinite(requestedDebugZoom) && requestedDebugZoom > 0 ? requestedDebugZoom : 1;
+  const sizes: ReadonlyArray<readonly [number, number]> = debugCapture ? [fullSizes[0]] : fullSizes;
+  const zoomFactors: readonly number[] = debugCapture ? [debugZoom] : [1, 1.5, 2];
+  const additionalZoomFactors: readonly number[] = debugCapture ? [] : [1.25, 1.75];
+  const allWorkspaces: readonly ResponsiveWorkspace[] = [
+    { id: "home", railId: "home", readySelector: ".home-projects" },
+    { id: "command-manual", railId: "command", tabLabel: "Manual", readySelector: ".manual-documentation" },
+    { id: "command-guided", railId: "command", tabLabel: "Guided", readySelector: ".guided-builder .react-flow__node" },
+    { id: "command-editor", railId: "command", tabLabel: "Editor", readySelector: ".compact-editor .monaco-editor" },
+    { id: "command-review", railId: "command", tabLabel: "Review", readySelector: ".execution-review-workspace" },
+    { id: "ai-assistant", railId: "ai-assistant", readySelector: ".ai-view" },
+    { id: "bookmarks", railId: "bookmarks", readySelector: ".bookmarks-view" },
+    { id: "history", railId: "history", readySelector: ".history-view" },
+    { id: "settings", railId: "settings", readySelector: ".settings-view" }
   ];
+  const requestedWorkspaceIds = new Set(
+    (process.env.CMD_IDE_RESPONSIVE_WORKSPACES ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+  );
+  const workspaces = requestedWorkspaceIds.size === 0
+    ? allWorkspaces
+    : allWorkspaces.filter((workspace) => requestedWorkspaceIds.has(workspace.id));
+  if (workspaces.length === 0) throw new Error("Responsive workspace filter did not match any surface");
 
   fs.mkdirSync(outputDirectory, { recursive: true });
   await waitForRendererCondition(
     window,
     "document.querySelector('.command-result[data-command-id=\"ls\"]') !== null"
   );
+  if (requestedTheme !== undefined) {
+    await window.webContents.executeJavaScript(`
+      document.documentElement.dataset.theme = ${JSON.stringify(requestedTheme)};
+      document.documentElement.style.colorScheme = ${JSON.stringify(requestedTheme)};
+    `);
+  }
   await window.webContents.executeJavaScript(`
     document.querySelector('.command-result[data-command-id="ls"]')?.click()
   `);
-  await waitForRendererCondition(window, "document.querySelector('.manual-documentation') !== null");
+  await waitForRendererCondition(window, "document.querySelector('.guided-builder') !== null");
 
   const captures: ResponsiveCaptureResult[] = [];
   const additionalScalingChecks: Array<Omit<ResponsiveCaptureResult, "file" | "imageSize">> = [];
@@ -371,23 +407,38 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
       await settleResponsiveLayout(window);
       for (const workspace of workspaces) {
         await window.webContents.executeJavaScript(`
-          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.id)}]')?.click()
+          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.railId)}]')?.click()
         `);
         await waitForRendererCondition(
           window,
-          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.id)}`
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.railId)}`
+        );
+        if (workspace.tabLabel !== undefined) {
+          await window.webContents.executeJavaScript(`
+            [...document.querySelectorAll('.command-view-switch button')]
+              .find((button) => button.textContent?.trim() === ${JSON.stringify(workspace.tabLabel)})?.click()
+          `);
+        }
+        await waitForRendererCondition(
+          window,
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.railId)}`
             + ` && document.querySelector(${JSON.stringify(workspace.readySelector)}) !== null`,
           20_000
         );
         await settleResponsiveLayout(window);
-        const metrics = await collectResponsiveMetrics(window, workspace.id);
+        if (requestedTheme !== undefined) {
+          await window.webContents.executeJavaScript(`
+            document.documentElement.dataset.theme = ${JSON.stringify(requestedTheme)};
+            document.documentElement.style.colorScheme = ${JSON.stringify(requestedTheme)};
+          `);
+        }
+        const metrics = await collectResponsiveMetrics(window, workspace.id, workspace.railId);
         const image = await window.webContents.capturePage();
         const file = `${workspace.id}__${requestedSize[0]}x${requestedSize[1]}__${Math.round(zoomFactor * 100)}pct.png`;
         fs.writeFileSync(path.join(outputDirectory, file), image.toPNG());
         const actualOuterSize = window.getSize() as [number, number];
         const imageSize = image.getSize();
-        metrics.checks.outerSizeApplied = actualOuterSize[0] === requestedSize[0]
-          && actualOuterSize[1] === requestedSize[1];
+        metrics.checks.outerSizeApplied = outerWindowSizeMatches(actualOuterSize, requestedSize);
         const expectedLayout = metrics.rendererSize[0] >= 1440
           ? "wide"
           : metrics.rendererSize[0] >= 1100 ? "medium" : "compact";
@@ -422,19 +473,28 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
       await settleResponsiveLayout(window);
       for (const workspace of workspaces) {
         await window.webContents.executeJavaScript(`
-          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.id)}]')?.click()
+          document.querySelector('[data-workspace-id=${JSON.stringify(workspace.railId)}]')?.click()
         `);
         await waitForRendererCondition(
           window,
-          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.id)}`
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.railId)}`
+        );
+        if (workspace.tabLabel !== undefined) {
+          await window.webContents.executeJavaScript(`
+            [...document.querySelectorAll('.command-view-switch button')]
+              .find((button) => button.textContent?.trim() === ${JSON.stringify(workspace.tabLabel)})?.click()
+          `);
+        }
+        await waitForRendererCondition(
+          window,
+          `document.querySelector('.app-shell')?.getAttribute('data-active-workspace') === ${JSON.stringify(workspace.railId)}`
             + ` && document.querySelector(${JSON.stringify(workspace.readySelector)}) !== null`,
           20_000
         );
         await settleResponsiveLayout(window);
-        const metrics = await collectResponsiveMetrics(window, workspace.id);
+        const metrics = await collectResponsiveMetrics(window, workspace.id, workspace.railId);
         const actualOuterSize = window.getSize() as [number, number];
-        metrics.checks.outerSizeApplied = actualOuterSize[0] === requestedSize[0]
-          && actualOuterSize[1] === requestedSize[1];
+        metrics.checks.outerSizeApplied = outerWindowSizeMatches(actualOuterSize, requestedSize);
         const expectedLayout = metrics.rendererSize[0] >= 1440
           ? "wide"
           : metrics.rendererSize[0] >= 1100 ? "medium" : "compact";
@@ -506,14 +566,23 @@ async function applyOuterWindowSize(window: BrowserWindow, width: number, height
         requestAnimationFrame(() => requestAnimationFrame(resolve));
       }))
     `);
-    const [actualWidth, actualHeight] = window.getSize();
-    if (actualWidth === width && actualHeight === height) return;
+    const [actualWidth, actualHeight] = window.getSize() as [number, number];
+    if (outerWindowSizeMatches([actualWidth, actualHeight], [width, height])) return;
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Electron did not apply requested outer size ${width}x${height}; actual ${window.getSize().join("x")}`);
 }
 
-async function collectResponsiveMetrics(window: BrowserWindow, workspace: string): Promise<{
+function outerWindowSizeMatches(
+  actual: readonly [number, number],
+  requested: readonly [number, number]
+): boolean {
+  const tolerance = process.platform === "win32" ? 1 : 0;
+  return Math.abs(actual[0] - requested[0]) <= tolerance
+    && Math.abs(actual[1] - requested[1]) <= tolerance;
+}
+
+async function collectResponsiveMetrics(window: BrowserWindow, workspace: string, railWorkspace: string): Promise<{
   rendererSize: [number, number];
   layout: string | null;
   checks: Record<string, boolean>;
@@ -535,11 +604,11 @@ async function collectResponsiveMetrics(window: BrowserWindow, workspace: string
       };
       const shell = document.querySelector('.app-shell');
       const workspaceHeader = document.querySelector('.workspace-tabs');
-      const activeRail = document.querySelector('[data-workspace-id=${JSON.stringify(workspace)}]');
-      const modeButtons = [...document.querySelectorAll('.mode-switch button')];
+      const activeRail = document.querySelector('[data-workspace-id=${JSON.stringify(railWorkspace)}]');
+      const commandTabList = document.querySelector('.command-view-switch');
+      const commandTabs = [...document.querySelectorAll('.command-view-switch button')];
       const primaryActions = [...document.querySelectorAll('.primary-actions button')];
-      const editing = ${JSON.stringify(workspace)} === 'visual-builder'
-        || ${JSON.stringify(workspace)} === 'script-editor';
+      const editing = ${JSON.stringify(workspace)}.startsWith('command-');
       const bodyStyle = getComputedStyle(document.body);
       const rootStyle = getComputedStyle(document.documentElement);
       return {
@@ -555,7 +624,14 @@ async function collectResponsiveMetrics(window: BrowserWindow, workspace: string
           activeWorkspaceVisible: visible(activeRail),
           applicationBarVisible: visible(workspaceHeader),
           terminalControlReachable: visible(document.querySelector('.terminal-toggle')),
-          safetyModeDiscoverable: modeButtons.length === 2 && modeButtons.every(visible),
+          safetyModeDiscoverable: !editing || (commandTabs.length === 4
+            && commandTabList instanceof HTMLElement
+            && commandTabs.every((button) => {
+              if (!visible(button)) return false;
+              const buttonRect = button.getBoundingClientRect();
+              const listRect = commandTabList.getBoundingClientRect();
+              return buttonRect.left >= listRect.left - 1 && buttonRect.right <= listRect.right + 1;
+            })),
           primaryActionsPresent: !editing || primaryActions.length === 3,
           primaryActionsVisible: !editing || primaryActions.every(visible),
           sidebarOwnsOverflow: getComputedStyle(document.querySelector('.command-sidebar .pane-scroll-content')).overflowY === 'auto',
@@ -585,22 +661,34 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   if (!selectedCatalogCommand) throw new Error("Catalog command selection was unavailable");
   await waitForRendererCondition(
     window,
-    "document.querySelector('.manual-documentation') !== null"
-      + " && document.querySelector('button[aria-label=\"Manual\"]')?.getAttribute('aria-current') === 'page'"
+    "document.querySelector('.guided-builder') !== null"
+      + " && document.querySelector('button[aria-label=\"Command Workspace\"]')?.getAttribute('aria-current') === 'page'"
   );
-  const openedBuilder = Boolean(await window.webContents.executeJavaScript(`
+  const openedManual = Boolean(await window.webContents.executeJavaScript(`
     (() => {
-      const button = document.querySelector('button[aria-label="Visual Builder"]');
+      const button = [...document.querySelectorAll('.command-view-switch button')]
+        .find((candidate) => candidate.textContent?.trim() === 'Manual');
       if (!(button instanceof HTMLButtonElement)) return false;
       button.click();
       return true;
     })()
   `));
-  if (!openedBuilder) throw new Error("Visual Builder workspace button was unavailable");
+  if (!openedManual) throw new Error("Manual command tab was unavailable");
+  await waitForRendererCondition(window, "document.querySelector('.manual-documentation') !== null");
+  const openedBuilder = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = [...document.querySelectorAll('.command-view-switch button')]
+        .find((candidate) => candidate.textContent?.trim() === 'Guided');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!openedBuilder) throw new Error("Guided command tab was unavailable");
   await waitForRendererCondition(
     window,
     "document.querySelector('.guided-builder') !== null"
-      + " && document.querySelector('button[aria-label=\"Visual Builder\"]')?.getAttribute('aria-current') === 'page'"
+      + " && [...document.querySelectorAll('.command-view-switch button')].some((button) => button.textContent?.trim() === 'Guided' && button.getAttribute('aria-selected') === 'true')"
   );
   await waitForRendererCondition(
     window,
@@ -656,13 +744,14 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   process.stderr.write("[smoke] semantic React Flow mutation validated\n");
   const switched = Boolean(await window.webContents.executeJavaScript(`
     (() => {
-      const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent?.trim() === 'Compact');
+      const button = [...document.querySelectorAll('.command-view-switch button')]
+        .find((candidate) => candidate.textContent?.trim() === 'Editor');
       if (!(button instanceof HTMLButtonElement)) return false;
       button.click();
       return true;
     })()
   `));
-  if (!switched) throw new Error("Compact mode button was not available");
+  if (!switched) throw new Error("Editor command tab was not available");
   await waitForRendererCondition(window, "document.querySelector('.compact-editor .monaco-editor') !== null");
   await waitForRendererCondition(
     window,
@@ -687,6 +776,44 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   await waitForRendererCondition(window, "document.querySelectorAll('.compact-editor .react-flow__node').length >= 2");
   await waitForRendererCondition(window, "document.querySelector('.terminal-panel .xterm') !== null");
   await verifyActiveSurfaceResizeState(window);
+  const openedReview = Boolean(await window.webContents.executeJavaScript(`
+    (() => {
+      const button = [...document.querySelectorAll('.command-view-switch button')]
+        .find((candidate) => candidate.textContent?.trim() === 'Review');
+      if (!(button instanceof HTMLButtonElement)) return false;
+      button.click();
+      return true;
+    })()
+  `));
+  if (!openedReview) throw new Error("Dedicated Review command tab was unavailable");
+  await waitForRendererCondition(window, "document.querySelector('.execution-review-workspace') !== null");
+  const reviewBoundary = await window.webContents.executeJavaScript(`
+    (() => ({
+      script: document.querySelector('.execution-review-workspace .review-script pre')?.textContent ?? null,
+      runDisabled: document.querySelector('.execution-review-workspace [data-primary-run]')?.disabled ?? null,
+      editorPreserved: document.querySelector('.compact-editor .monaco-editor') !== null
+    }))()
+  `) as { script: string | null; runDisabled: boolean | null; editorPreserved: boolean };
+  if (!(reviewBoundary.script?.includes('ls -al .') === true)
+      || reviewBoundary.runDisabled !== true
+      || !reviewBoundary.editorPreserved) {
+    throw new Error(`Dedicated review boundary was incomplete: ${JSON.stringify(reviewBoundary)}`);
+  }
+  process.stderr.write("[smoke] dedicated exact-script review boundary and persistent editor validated\n");
+  const unsavedReplacementBlocked = Boolean(await window.webContents.executeJavaScript(`
+    (async () => {
+      window.confirm = () => false;
+      const replacement = [...document.querySelectorAll('.command-result')]
+        .find((candidate) => !candidate.classList.contains('selected'));
+      if (!(replacement instanceof HTMLButtonElement)) return false;
+      replacement.click();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return document.querySelector('.command-result.selected')?.getAttribute('data-command-id') === 'ls'
+        && document.querySelector('.execution-review-workspace') !== null;
+    })()
+  `));
+  if (!unsavedReplacementBlocked) throw new Error("Unsaved command replacement was not blocked after cancellation");
+  process.stderr.write("[smoke] unsaved command replacement safeguard validated\n");
   const openedHistory = Boolean(await window.webContents.executeJavaScript(`
     (() => {
       const button = document.querySelector('button[aria-label="History"]');
@@ -847,7 +974,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   await waitForRendererCondition(
     window,
     "document.querySelector('.onboarding-panel') !== null"
-      + " && document.querySelector('[data-active-workspace=\"catalog\"]') !== null"
+      + " && document.querySelector('[data-active-workspace=\"home\"]') !== null"
       + " && localStorage.getItem('command-ide:onboarding-complete') === null"
   );
   await window.webContents.executeJavaScript(`
@@ -912,7 +1039,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   );
   await window.webContents.executeJavaScript(`
     window.dispatchEvent(new KeyboardEvent('keydown', {
-      key: '5',
+      key: '3',
       altKey: true,
       bubbles: true,
       cancelable: true
@@ -967,7 +1094,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
 }
 
 async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
-  await waitForRendererCondition(window, "document.querySelectorAll('.rail-button').length === 8");
+  await waitForRendererCondition(window, "document.querySelectorAll('.rail-button').length === 6");
   await applyOuterWindowSize(window, 980, 640);
   await waitForRendererCondition(
     window,
@@ -979,7 +1106,7 @@ async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
   const result = await window.webContents.executeJavaScript(`
     (() => {
       const buttons = [...document.querySelectorAll('.rail-button')];
-      const modeSwitch = document.querySelector('.mode-switch');
+      const commandViewSwitch = document.querySelector('.command-view-switch');
       const workflowGuide = document.querySelector('.workflow-guide');
       const workflowSteps = [...document.querySelectorAll('.workflow-guide li')];
       const sessionContext = document.querySelector('.session-context');
@@ -993,7 +1120,7 @@ async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
           return label !== null && label.length > 2 && button.getAttribute('data-label') === label;
         }),
         activeCount: buttons.filter((button) => button.getAttribute('aria-current') === 'page').length,
-        modeDescription: modeSwitch?.getAttribute('aria-describedby') === 'mode-context',
+        commandFlowIsContextual: commandViewSwitch === null,
         workflowStepCount: workflowSteps.length,
         workflowActiveCount: workflowSteps.filter((step) => step.classList.contains('active')).length,
         workflowLabelPresent: (workflowGuide?.getAttribute('aria-label')?.length ?? 0) > 3,
@@ -1042,7 +1169,7 @@ async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
     iconsPresent: boolean;
     labelsPresent: boolean;
     activeCount: number;
-    modeDescription: boolean;
+    commandFlowIsContextual: boolean;
     workflowStepCount: number;
     workflowActiveCount: number;
     workflowLabelPresent: boolean;
@@ -1074,11 +1201,11 @@ async function verifyPolishedNavigation(window: BrowserWindow): Promise<void> {
       overflowY: string;
     }>;
   };
-  if (result.buttonCount !== 8
+  if (result.buttonCount !== 6
       || !result.iconsPresent
       || !result.labelsPresent
       || result.activeCount !== 1
-      || !result.modeDescription
+      || !result.commandFlowIsContextual
       || result.workflowStepCount !== 4
       || result.workflowActiveCount !== 1
       || !result.workflowLabelPresent
@@ -1183,7 +1310,7 @@ async function verifyActiveSurfaceResizeState(window: BrowserWindow): Promise<vo
       const terminal = document.querySelector('.terminal-panel .xterm');
       const node = document.querySelector('.compact-editor .react-flow__node');
       const viewport = document.querySelector('.compact-editor .react-flow__viewport');
-      const preview = document.querySelector('.execution-review pre');
+      const preview = document.querySelector('.compact-editor .parse-summary.ready');
       const available = {
         editor: editor instanceof HTMLElement,
         canvas: canvas instanceof HTMLElement,
@@ -1248,7 +1375,7 @@ async function verifyActiveSurfaceResizeState(window: BrowserWindow): Promise<vo
       const terminal = document.querySelector('.terminal-panel .xterm');
       const node = document.querySelector('.compact-editor .react-flow__node');
       const viewport = document.querySelector('.compact-editor .react-flow__viewport');
-      const preview = document.querySelector('.execution-review pre');
+      const preview = document.querySelector('.compact-editor .parse-summary.ready');
       const content = document.querySelector('.workspace-content');
       if (!(editor instanceof HTMLElement)
           || !(canvas instanceof HTMLElement)
@@ -1355,7 +1482,7 @@ async function waitForRendererCondition(
   throw new Error(`Renderer condition timed out: ${expression}`);
 }
 
-function startWorker(): WorkerSupervisor {
+function startWorker(activeLogger: StructuredLogger): WorkerSupervisor {
   const workerJar = resolveWorkerJar();
   if (!fs.existsSync(workerJar)) {
     throw new Error(`Java worker JAR does not exist: ${workerJar}`);
@@ -1365,13 +1492,18 @@ function startWorker(): WorkerSupervisor {
     const client = new WorkerClient({
       javaExecutable: resolveJavaExecutable(),
       workerJar,
+      logger: activeLogger,
       environment: {
         CMD_IDE_DATA_DIR: process.env.CMD_IDE_DATA_DIR ?? app.getPath("userData"),
+        CMD_IDE_LOG_LEVEL: activeLogger.level,
         ...bundledBashLanguageServerEnvironment(app.getAppPath(), process.execPath)
       }
     });
-    client.on("workerLog", (message: string) => process.stderr.write(`[worker] ${message}`));
-    client.on("workerError", (error: Error) => process.stderr.write(`[worker-error] ${error.message}\n`));
+    client.on("workerLog", (message: string) => activeLogger.ingestWorkerLine(message));
+    client.on("workerError", (error: Error) => {
+      activeLogger.error("worker.error", logErrorContext(error));
+      process.stderr.write(`[worker-error] ${error.message}\n`);
+    });
     client.on("notification", (notification: JsonRpcNotification) => {
       try {
         if (notification.method === EXECUTION_EVENT_METHOD) {
@@ -1388,8 +1520,10 @@ function startWorker(): WorkerSupervisor {
           }
           return;
         }
+        activeLogger.error("worker.notification.unexpected", { method: notification.method });
         process.stderr.write(`[worker-error] Unexpected notification method: ${notification.method}\n`);
       } catch (error: unknown) {
+        activeLogger.error("worker.notification.invalid", logErrorContext(error));
         process.stderr.write(`[worker-error] Invalid worker notification: ${String(error)}\n`);
       }
     });
@@ -1900,7 +2034,25 @@ function ensureExportExtension(filePath: string, format: "project" | "bash" | "m
 }
 
 app.whenReady().then(() => {
-  worker = startWorker();
+  app.setAppLogsPath();
+  logger = new StructuredLogger({
+    component: "electron-main",
+    directory: process.env.CMD_IDE_LOG_DIR === undefined
+      ? app.getPath("logs")
+      : path.resolve(process.env.CMD_IDE_LOG_DIR),
+    level: resolveLogLevel(process.env.CMD_IDE_LOG_LEVEL),
+    mirrorToStderr: process.env.CMD_IDE_LOG_STDERR === "1"
+  });
+  logger.info("application.starting", {
+    version: app.getVersion(),
+    platform: process.platform,
+    architecture: process.arch,
+    packaged: app.isPackaged,
+    ozonePlatformHint: desktopStartupPlan.ozonePlatformHint ?? "none",
+    hardwareAccelerationDisabled: desktopStartupPlan.disableHardwareAcceleration
+  });
+  process.stderr.write(`[command-ide] structured log: ${logger.filePath}\n`);
+  worker = startWorker(logger);
   const locale = resolveSupportedLocale([
     ...app.getPreferredSystemLanguages(),
     app.getLocale()
@@ -1914,6 +2066,7 @@ app.whenReady().then(() => {
     }
   });
 }).catch((error: unknown) => {
+  logger?.error("application.startup_failed", logErrorContext(error));
   process.stderr.write(`Application startup failed: ${String(error)}\n`);
   app.exit(1);
 });
@@ -1925,6 +2078,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  logger?.info("application.stopping");
   ipcMain.removeHandler(HEALTH_CHANNEL);
   ipcMain.removeHandler(SYSTEM_CHANNEL);
   ipcMain.removeHandler(DESKTOP_ENVIRONMENT_CHANNEL);
@@ -1970,4 +2124,9 @@ app.on("before-quit", () => {
   workingDirectories.clear();
   worker?.shutdown();
   worker = null;
+  logger?.flush();
 });
+
+function resolveLogLevel(value: string | undefined): LogLevel {
+  return value === "debug" || value === "warn" || value === "error" ? value : "info";
+}

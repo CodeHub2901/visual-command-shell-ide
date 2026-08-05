@@ -11,27 +11,27 @@ pass for the same revision.
 
 ## Required matrix
 
-The automated Electron capture gate exercises all eight primary workspaces:
-Catalog, Visual Builder, Script Editor, Manual, AI Assistant, Bookmarks,
-History, and Settings.
+The automated Electron capture gate exercises all nine user-facing surfaces:
+Home & Projects; the Command Workspace Manual, Guided, Editor, and Review
+views; AI Assistant; Bookmarks; History; and Settings.
 
 | Outer window | 100% | 150% | 200% |
 | --- | --- | --- | --- |
-| 980×640 | 8 workspaces | 8 workspaces | 8 workspaces |
-| 1024×768 | 8 workspaces | 8 workspaces | 8 workspaces |
-| 1366×768 | 8 workspaces | 8 workspaces | 8 workspaces |
-| 1440×900 | 8 workspaces | 8 workspaces | 8 workspaces |
-| 1920×1080 | 8 workspaces | 8 workspaces | 8 workspaces |
-| 2560×1440 | 8 workspaces | 8 workspaces | 8 workspaces |
+| 980×640 | 9 surfaces | 9 surfaces | 9 surfaces |
+| 1024×768 | 9 surfaces | 9 surfaces | 9 surfaces |
+| 1366×768 | 9 surfaces | 9 surfaces | 9 surfaces |
+| 1440×900 | 9 surfaces | 9 surfaces | 9 surfaces |
+| 1920×1080 | 9 surfaces | 9 surfaces | 9 surfaces |
+| 2560×1440 | 9 surfaces | 9 surfaces | 9 surfaces |
 
-This produces 144 screenshots. `pnpm test:responsive` writes the images and
+This produces 162 screenshots. `pnpm test:responsive` writes the images and
 machine-readable `responsive-report.json` to `work/responsive-screenshots/`.
 CI and the Linux release workflow retain that directory as the
 `responsive-linux-screenshots` artifact.
 
-The same gate additionally runs the complete 8-workspace × 6-size assertion
+The same gate additionally runs the complete 9-surface × 6-size assertion
 matrix at 125% and 175% without duplicating screenshots. Together, the gate
-checks 240 responsive states across all required Ubuntu scaling levels.
+checks 270 responsive states across all required Ubuntu scaling levels.
 
 ## Automated assertions per capture
 
@@ -42,9 +42,10 @@ checks 240 responsive states across all required Ubuntu scaling levels.
 - Sidebar, workspace, and inspector retain independent vertical scrolling.
 - The active workspace, top application bar, terminal control, and
   Guided/Compact safety mode are visible.
-- Visual Builder and Script Editor keep Save, Review & Run, and Cancel visible
-  in the fixed application bar, using labelled compact icons when space is
-  constrained.
+- Every Command Workspace view keeps Save, Review & Run, and Cancel visible in
+  the fixed application bar, using labelled compact icons when space is
+  constrained. Manual, Guided, Editor, and Review remain visible as one
+  contextual tab set rather than separate primary destinations.
 - Every capture is non-empty and the run contains no ResizeObserver-loop
   diagnostics.
 
@@ -53,6 +54,52 @@ React Flow, and xterm are active. It verifies that their DOM instances, draft,
 canvas node and viewport transform, terminal instance, and workspace scroll
 state survive. It also opens compact drawers from the keyboard, closes them
 with Escape, and checks focus restoration.
+
+## Translucent material review - 2026-08-05
+
+The dark and light appearances now use a clearer macOS-inspired material
+hierarchy. Sidebar, toolbar, and panel fills transmit more of the shared
+blue/violet/teal canvas, while controls and the terminal remain progressively
+denser for legibility. Primary shell glass uses a bounded 34 px blur with
+higher saturation; content cards use a bounded 24 px blur. Thin illuminated
+top edges and lighter shadows provide separation without returning to opaque
+boxed panels.
+
+Automated theme tests cap the core material opacities, require raised surfaces
+to remain denser than content glass, verify the blur and opaque fallback, and
+retain WCAG AA contrast for semantic text. Terminal status colors are isolated
+from the surrounding theme because the terminal remains dark in both
+appearances.
+
+Targeted Electron screenshots were visually reviewed in explicit Dark and
+Light appearances at the compact 980x640 boundary. The complete default-theme
+matrix then passed with 162 screenshots and 108 additional 125%/175% scaling
+states. For focused material review, the screenshot harness accepts
+`CMD_IDE_RESPONSIVE_THEME=dark` or `CMD_IDE_RESPONSIVE_THEME=light` together
+with its existing debug workspace controls.
+
+## Command-workspace redesign review — 2026-08-05
+
+The navigation redesign replaces the separate Catalog, Manual, Visual Builder,
+and Script Editor destinations with Home & Projects plus one persistent Command
+Workspace. Manual, Guided, Editor, and the dedicated execution Review are now
+contextual tabs. Project import and recent projects moved to Home, while AI and
+bookmark proposals enter the same Command Workspace without executing.
+
+The complete local 162-image capture matrix and all 108 additional scaling
+states passed on the implementation workstation. Targeted visual review covered
+all nine surfaces, with special attention to 980×640 at 100% and 200%. The first
+pass exposed an overcrowded command header and an oversized workflow guide at
+200%; shorter contextual labels, an icon-only compact header, and a condensed
+flow indicator now keep all tabs and primary actions visible. Review suppresses
+the redundant guide so the exact execution boundary appears immediately.
+
+The smoke gate also verifies that Review shows the exact validated script,
+blocks Run until a working directory is selected, keeps Monaco/React Flow/xterm
+mounted across layout transitions, and honors cancellation of an unsaved-draft
+replacement. The same 162/108 matrix must still pass on Ubuntu/Xvfb for this
+revision before the Linux responsive gate is complete or a beta can be
+published.
 
 ## Visual review record — 2026-08-04
 
