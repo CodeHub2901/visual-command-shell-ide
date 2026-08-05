@@ -735,7 +735,12 @@ export function App() {
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown") {
                   event.preventDefault();
-                  document.querySelector<HTMLButtonElement>("#catalog-results .command-result")?.focus();
+                  // Search results arrive asynchronously and may finish a React
+                  // layout commit in the same frame as this keyboard event. Move
+                  // focus after that commit so the latest result node receives it.
+                  focusAfterLayout(() => {
+                    document.querySelector<HTMLButtonElement>("#catalog-results .command-result")?.focus();
+                  });
                 } else if (event.key === "Escape" && query.length > 0) {
                   event.stopPropagation();
                   setQuery("");
