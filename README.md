@@ -8,8 +8,8 @@ The first release targets Bash on Ubuntu 24.04/26.04 LTS and Fedora 44 x86-64. T
 
 Phases 0-10 of the Linux MVP are implemented and verified. The complete native
 acceptance matrix passed on Ubuntu 24.04, Ubuntu 26.04, and Fedora 44 for the
-verified `develop` baseline `faed26d7541163b0928e6b09ab4d4e6bc0747757` in
-[workflow run 30940966048](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/30940966048).
+verified `develop` baseline `d5c0efaeae7a59d3825dd3b2a2c9375733528d3b` in
+[workflow run 31009742563](https://github.com/CodeHub2901/visual-command-shell-ide/actions/runs/31009742563).
 The versioned release branch must pass the same exact-revision gate before the
 public beta is approved. Release train `0.1.0` is codenamed **Andromeda**; the
 [constellation release registry](docs/release/constellation-codenames.md) tracks

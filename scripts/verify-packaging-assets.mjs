@@ -33,7 +33,7 @@ const legalOwner = "Divyang S Mistry";
 const expectedIcon = "assets/packaging/icon.svg";
 const iconPath = path.join(desktopDirectory, expectedIcon);
 const expectedBashLanguageServerVersion = "5.6.0";
-const expectedReleaseVersion = "0.1.0-beta.1";
+const expectedReleaseVersion = "0.1.0-beta.2";
 const bashLanguageServerDirectory = path.join(
   desktopDirectory,
   "node_modules",

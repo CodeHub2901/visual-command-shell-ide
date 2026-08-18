@@ -254,7 +254,7 @@ describe("protocol contracts", () => {
     expect(() =>
       HealthCheckResultSchema.parse({
         protocolVersion: "2.0",
-        workerVersion: "0.1.0-beta.1",
+        workerVersion: "0.1.0-beta.2",
         javaVersion: "21",
         pid: 42
       })

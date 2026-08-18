@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Electron (Dev)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "runtimeExecutable": "${workspaceFolder}/apps/desktop/node_modules/.bin/electron",
+      "args": ["."],
+      "outputCapture": "std",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Attach to Electron Main",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "protocol": "inspector"
+    },
+    {
+      "name": "Debug Java Worker",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "dev.commandide.worker.CommandIdeWorker",
+      "projectName": "worker",
+      "cwd": "${workspaceFolder}/apps/worker",
+      "vmArgs": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack Debug",
+      "configurations": ["Launch Electron (Dev)", "Debug Java Worker"],
+      "stopAll": true
+    }
+  ]
+}

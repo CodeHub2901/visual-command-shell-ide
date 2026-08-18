@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const workerJar = path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-beta.1-all.jar");
+const workerJar = path.join(repositoryRoot, "apps", "worker", "target", "worker-0.1.0-beta.2-all.jar");
 const javaExecutable = process.env.CMD_IDE_JAVA ?? "java";
 const child = spawn(javaExecutable, ["-jar", workerJar], {
   stdio: ["pipe", "pipe", "pipe"],
@@ -76,7 +76,7 @@ function request(id, method, params) {
 
 const health = await request("integration-health-1", "v1.health.check", {});
 assert.equal(health.result.protocolVersion, "1.0");
-assert.equal(health.result.workerVersion, "0.1.0-beta.1");
+assert.equal(health.result.workerVersion, "0.1.0-beta.2");
 assert.ok(Number.isInteger(health.result.pid) && health.result.pid > 0);
 
 const tooling = await request("integration-tooling-detect", "v1.tooling.detect", {});

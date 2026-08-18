@@ -1,6 +1,6 @@
 {
   "name": "@cmd-ide/desktop",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.0-beta.2",
   "private": true,
   "description": "Offline-first visual command and shell IDE",
   "author": {
@@ -58,7 +58,7 @@
     ],
     "extraResources": [
       {
-        "from": "../worker/target/worker-0.1.0-beta.1-all.jar",
+        "from": "../worker/target/worker-0.1.0-beta.2-all.jar",
         "to": "worker/worker-all.jar"
       },
       {
