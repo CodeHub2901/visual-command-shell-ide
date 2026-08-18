@@ -1,0 +1,49 @@
+{
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "/home/divyang/.local/jdk-21.0.6+7",
+      "default": true
+    }
+  ],
+  "java.jdt.ls.java.home": "/home/divyang/.local/jdk-21.0.6+7",
+  "java.home": "/home/divyang/.local/jdk-21.0.6+7",
+  "maven.executable.path": "./mvnw",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "pnpm.enable": true,
+  "pnpm.packageManager": "pnpm",
+  "npm.packageManager": "pnpm",
+  "files.associations": {
+    "*.mjs": "javascript",
+    "*.cjs": "javascript"
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[java]": {
+    "editor.defaultFormatter": "redhat.java"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/dist-electron": true,
+    "**/target": true,
+    "**/.nvm": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/target/**": true
+  }
+}
