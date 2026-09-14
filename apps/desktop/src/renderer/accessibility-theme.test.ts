@@ -73,9 +73,15 @@ describe("accessible visual tokens", () => {
   });
 
   it("uses bounded high-saturation blur and an opaque fallback", () => {
-    expect(styles).toMatch(/--glass-blur:\s*blur\(34px\)\s+saturate\(1[67][05]%\)/u);
-    expect(styles).toMatch(/--glass-panel-blur:\s*blur\(24px\)\s+saturate\(1[56][05]%\)/u);
+    expect(styles).toMatch(/--glass-blur:\s*blur\(48px\)\s+saturate\((?:190|200)%\)/u);
+    expect(styles).toMatch(/--glass-panel-blur:\s*blur\(28px\)\s+saturate\((?:175|180)%\)/u);
     expect(styles).toMatch(/@supports not \(\(backdrop-filter:/u);
     expect(styles).toMatch(/background:\s*var\(--material-solid\)/u);
+  });
+
+  it("keeps wallpaper sampling behind an opt-in native-transparency wash", () => {
+    expect(styles).toMatch(/html\[data-native-transparency="true"\] body/u);
+    expect(styles).toMatch(/html\[data-native-transparency="true"\]\[data-theme="light"\] body/u);
+    expect(styles).toMatch(/html\[data-native-transparency="true"\] \.app-shell\s*\{[^}]*isolation:\s*auto/u);
   });
 });

@@ -258,7 +258,7 @@ function createWindow(): BrowserWindow {
   // Native transparency depends on Linux compositor support. Keep it opt-in so
   // unsupported sessions retain a reliable opaque window while the renderer's
   // in-app glass materials remain available everywhere.
-  const nativeTransparency = process.env.CMD_IDE_NATIVE_TRANSPARENCY === "1";
+  const nativeTransparency = desktopStartupPlan.profile.nativeTransparency;
   const window = new BrowserWindow({
     width: 1360,
     height: 860,
@@ -278,6 +278,12 @@ function createWindow(): BrowserWindow {
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   window.webContents.on("console-message", (details) => {
     logger?.ingestRendererMessage(details.message, details.level);
+  });
+  window.webContents.on("dom-ready", () => {
+    const flag = nativeTransparency ? "true" : "false";
+    void window.webContents.executeJavaScript(
+      `document.documentElement.dataset.nativeTransparency = ${JSON.stringify(flag)};`
+    );
   });
   window.once("ready-to-show", () => window.show());
   window.webContents.once("did-finish-load", () => {
@@ -362,7 +368,7 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
   const allWorkspaces: readonly ResponsiveWorkspace[] = [
     { id: "home", railId: "home", readySelector: ".home-projects" },
     { id: "command-manual", railId: "command", tabLabel: "Manual", readySelector: ".manual-documentation" },
-    { id: "command-guided", railId: "command", tabLabel: "Guided", readySelector: ".guided-builder .react-flow__node" },
+    { id: "command-guided", railId: "command", tabLabel: "Guided", readySelector: ".guided-builder" },
     { id: "command-editor", railId: "command", tabLabel: "Editor", readySelector: ".compact-editor .monaco-editor" },
     { id: "command-review", railId: "command", tabLabel: "Review", readySelector: ".execution-review-workspace" },
     { id: "ai-assistant", railId: "ai-assistant", readySelector: ".ai-view" },
@@ -395,7 +401,7 @@ async function captureResponsiveVerification(window: BrowserWindow, outputDirect
   await window.webContents.executeJavaScript(`
     document.querySelector('.command-result[data-command-id="ls"]')?.click()
   `);
-  await waitForRendererCondition(window, "document.querySelector('.guided-builder') !== null");
+  await waitForRendererCondition(window, "document.querySelector('.manual-documentation') !== null");
 
   const captures: ResponsiveCaptureResult[] = [];
   const additionalScalingChecks: Array<Omit<ResponsiveCaptureResult, "file" | "imageSize">> = [];
@@ -632,7 +638,7 @@ async function collectResponsiveMetrics(window: BrowserWindow, workspace: string
               const listRect = commandTabList.getBoundingClientRect();
               return buttonRect.left >= listRect.left - 1 && buttonRect.right <= listRect.right + 1;
             })),
-          primaryActionsPresent: !editing || primaryActions.length === 3,
+          primaryActionsPresent: !editing || primaryActions.length <= 1,
           primaryActionsVisible: !editing || primaryActions.every(visible),
           sidebarOwnsOverflow: getComputedStyle(document.querySelector('.command-sidebar .pane-scroll-content')).overflowY === 'auto',
           workspaceOwnsOverflow: getComputedStyle(document.querySelector('.workspace-content')).overflowY === 'auto',
@@ -661,7 +667,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   if (!selectedCatalogCommand) throw new Error("Catalog command selection was unavailable");
   await waitForRendererCondition(
     window,
-    "document.querySelector('.guided-builder') !== null"
+    "document.querySelector('.manual-documentation') !== null"
       + " && document.querySelector('button[aria-label=\"Command Workspace\"]')?.getAttribute('aria-current') === 'page'"
   );
   const openedManual = Boolean(await window.webContents.executeJavaScript(`
@@ -700,7 +706,6 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
   if (builderGenerationError.length > 0) {
     throw new Error(`Visual Builder generation failed: ${builderGenerationError}`);
   }
-  await waitForRendererCondition(window, "document.querySelector('.guided-builder .react-flow__node') !== null");
   await waitForRendererCondition(
     window,
     "document.querySelector('.session-context .draft-state.unsaved, .session-context .draft-state.saved') !== null"
@@ -723,25 +728,20 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
     "[...document.querySelectorAll('.project-actions [role=\"status\"]')].some((node) => node.textContent?.includes('Copied exact command'))"
   );
   process.stderr.write("[smoke] exact generated command clipboard action validated\n");
-  const commentAdded = Boolean(await window.webContents.executeJavaScript(`
+  const exampleAdded = Boolean(await window.webContents.executeJavaScript(`
     (() => {
-      const button = [...document.querySelectorAll('.guided-builder .shell-canvas-toolbar button')]
-        .find((candidate) => candidate.textContent?.trim() === 'Add comment');
-      if (!(button instanceof HTMLButtonElement)) return false;
+      const button = document.querySelector('.visual-catalog-actions button');
+      if (!(button instanceof HTMLButtonElement) || button.disabled) return false;
       button.click();
       return true;
     })()
   `));
-  if (!commentAdded) throw new Error("Semantic Add comment action was not available");
+  if (!exampleAdded) throw new Error("Add catalog example action was not available");
   await waitForRendererCondition(
     window,
-    "document.querySelectorAll('.guided-builder .react-flow__node').length >= 2"
+    "document.querySelector('.visual-catalog-actions span')?.textContent?.includes('Added') === true"
   );
-  await waitForRendererCondition(
-    window,
-    "document.querySelector('.guided-builder .generated-preview code')?.textContent?.includes('# Add documentation') === true"
-  );
-  process.stderr.write("[smoke] semantic React Flow mutation validated\n");
+  process.stderr.write("[smoke] catalog example insertion validated\n");
   const switched = Boolean(await window.webContents.executeJavaScript(`
     (() => {
       const button = [...document.querySelectorAll('.command-view-switch button')]
@@ -773,7 +773,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
     "document.querySelector('.editor-tool-actions [role=\"status\"]')?.textContent?.length > 0"
   );
   process.stderr.write("[smoke] explicit optional-tool analysis boundary validated\n");
-  await waitForRendererCondition(window, "document.querySelectorAll('.compact-editor .react-flow__node').length >= 2");
+  await waitForRendererCondition(window, "document.querySelector('.compact-editor .parse-summary.ready') !== null");
   await waitForRendererCondition(window, "document.querySelector('.terminal-panel .xterm') !== null");
   await verifyActiveSurfaceResizeState(window);
   const openedReview = Boolean(await window.webContents.executeJavaScript(`
@@ -1088,7 +1088,7 @@ async function verifyRendererEditors(window: BrowserWindow): Promise<void> {
       + " && sessionStorage.getItem('command-ide:terminal-layout') === 'expanded'"
   );
   process.stderr.write("[smoke] collapsible terminal layout and session state validated\n");
-  process.stderr.write("[smoke] React Flow and local Monaco editors validated\n");
+  process.stderr.write("[smoke] Guided form and local Monaco editors validated\n");
   await measureInteractiveCanvas(window);
   app.quit();
 }
@@ -1306,31 +1306,19 @@ async function verifyActiveSurfaceResizeState(window: BrowserWindow): Promise<vo
   const surfaceState = await window.webContents.executeJavaScript(`
     (() => {
       const editor = document.querySelector('.compact-editor .monaco-editor');
-      const canvas = document.querySelector('.compact-editor .react-flow');
       const terminal = document.querySelector('.terminal-panel .xterm');
-      const node = document.querySelector('.compact-editor .react-flow__node');
-      const viewport = document.querySelector('.compact-editor .react-flow__viewport');
       const preview = document.querySelector('.compact-editor .parse-summary.ready');
       const available = {
         editor: editor instanceof HTMLElement,
-        canvas: canvas instanceof HTMLElement,
         terminal: terminal instanceof HTMLElement,
-        node: node instanceof HTMLElement,
-        viewport: viewport instanceof HTMLElement,
         draftReview: preview !== null
       };
       if (!(editor instanceof HTMLElement)
-          || !(canvas instanceof HTMLElement)
           || !(terminal instanceof HTMLElement)
-          || !(node instanceof HTMLElement)
-          || !(viewport instanceof HTMLElement)
           || preview === null) return { marked: false, available };
       editor.dataset.resizeIdentity = 'editor-preserved';
-      canvas.dataset.resizeIdentity = 'canvas-preserved';
       terminal.dataset.resizeIdentity = 'terminal-preserved';
-      canvas.dataset.nodeTransform = node.style.transform;
-      canvas.dataset.viewportTransform = viewport.style.transform;
-      canvas.dataset.sourcePreview = preview.textContent ?? '';
+      editor.dataset.sourcePreview = preview.textContent ?? '';
       const content = document.querySelector('.workspace-content');
       if (content instanceof HTMLElement) {
         content.scrollTop = Math.min(24, content.scrollHeight - content.clientHeight);
@@ -1371,35 +1359,26 @@ async function verifyActiveSurfaceResizeState(window: BrowserWindow): Promise<vo
   const preserved = Boolean(await window.webContents.executeJavaScript(`
     (() => {
       const editor = document.querySelector('.compact-editor .monaco-editor');
-      const canvas = document.querySelector('.compact-editor .react-flow');
       const terminal = document.querySelector('.terminal-panel .xterm');
-      const node = document.querySelector('.compact-editor .react-flow__node');
-      const viewport = document.querySelector('.compact-editor .react-flow__viewport');
       const preview = document.querySelector('.compact-editor .parse-summary.ready');
       const content = document.querySelector('.workspace-content');
       if (!(editor instanceof HTMLElement)
-          || !(canvas instanceof HTMLElement)
           || !(terminal instanceof HTMLElement)
-          || !(node instanceof HTMLElement)
-          || !(viewport instanceof HTMLElement)
           || !(content instanceof HTMLElement)
           || preview === null) return false;
       return editor.dataset.resizeIdentity === 'editor-preserved'
-        && canvas.dataset.resizeIdentity === 'canvas-preserved'
         && terminal.dataset.resizeIdentity === 'terminal-preserved'
-        && canvas.dataset.nodeTransform === node.style.transform
-        && canvas.dataset.viewportTransform === viewport.style.transform
-        && canvas.dataset.sourcePreview === (preview.textContent ?? '')
+        && editor.dataset.sourcePreview === (preview.textContent ?? '')
         && content.scrollTop === Number(content.dataset.resizeScrollTop)
         && document.documentElement.scrollWidth === document.documentElement.clientWidth
         && document.documentElement.scrollHeight === document.documentElement.clientHeight;
     })()
   `));
   if (!preserved) {
-    throw new Error("Live resizing remounted a primary surface or changed editor/canvas/scroll state");
+    throw new Error("Live resizing remounted a primary surface or changed editor/scroll state");
   }
   await applyOuterWindowSize(window, 1360, 860);
-  process.stderr.write("[smoke] live responsive resizing preserved Monaco, React Flow, xterm, draft, and scroll state\n");
+  process.stderr.write("[smoke] live responsive resizing preserved Monaco, xterm, draft, and scroll state\n");
 }
 
 async function measureInteractiveCanvas(window: BrowserWindow): Promise<void> {

@@ -35,7 +35,6 @@ import type {
   ToolStatus,
   ToolingProfile
 } from "@cmd-ide/contracts";
-import { ShellProgramCanvas } from "./ShellProgramCanvas";
 import { replaceCommandNode } from "./shell-graph";
 import { appendProgram } from "./shell-mutations";
 import { mergeBookmarkParameters } from "./bookmark-utils";
@@ -54,6 +53,13 @@ import {
   type PaneSizes
 } from "./pane-layout";
 import { workflowProgress, type WorkflowStepState } from "./workflow-progress";
+import {
+  buildCommandView,
+  catalogSelectionView,
+  interfaceModeView,
+  type CommandView
+} from "./command-view";
+import { formatOptionDescription, mergeCommandOptions, optionsFromManual, splitManualBlocks } from "./manual-format";
 import { draftSaveState, type DraftSaveState } from "./draft-status";
 import {
   TERMINAL_LAYOUT_SESSION_KEY,
@@ -158,8 +164,6 @@ type ExecutionDraft = {
   assessment: RiskAssessment;
 };
 
-type CommandView = "manual" | "guided" | "editor" | "review";
-
 type WorkingDirectory = { token: string; label: string };
 
 type ExecutionState =
@@ -203,7 +207,7 @@ export function App() {
   const [projectImport, setProjectImport] = useState<ProjectActionState>({ status: "idle" });
   const [executionDraft, setExecutionDraft] = useState<ExecutionDraft | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceId>("home");
-  const [commandView, setCommandView] = useState<CommandView>("guided");
+  const [commandView, setCommandView] = useState<CommandView>(catalogSelectionView);
   const [onboardingVisible, setOnboardingVisible] = useState(() => {
     try {
       return !onboardingCompleteFromStorage(window.localStorage.getItem(ONBOARDING_STORAGE_KEY));
@@ -301,6 +305,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (desktopEnvironment.status !== "ready") return;
+    document.documentElement.dataset.nativeTransparency = desktopEnvironment.profile.nativeTransparency
+      ? "true"
+      : "false";
+  }, [desktopEnvironment]);
+
+  useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
       const shortcut = resolveAppShortcut(event);
@@ -317,7 +328,7 @@ export function App() {
       }
       if (shortcut.kind === "mode") {
         setMode(shortcut.mode);
-        setCommandView(shortcut.mode === "Guided" ? "guided" : "editor");
+        setCommandView(interfaceModeView(shortcut.mode));
         if (selectedId !== null) {
           setWorkspace("command");
         }
@@ -547,6 +558,7 @@ export function App() {
 
   const selectCommand = (id: string) => {
     if (id === selectedId) {
+      setCommandView("manual");
       setWorkspace("command");
       if (layoutBand === "compact") closeSidebar();
       return;
@@ -559,9 +571,16 @@ export function App() {
     setExecutionState({ status: "idle" });
     setSessionId(null);
     setSelectedId(id);
-    setCommandView(mode === "Guided" ? "guided" : "editor");
+    setCommandView("manual");
     setWorkspace("command");
     if (layoutBand === "compact") closeSidebar();
+  };
+
+  const openGuidedFromManual = () => {
+    setMode("Guided");
+    setCommandView(buildCommandView());
+    setWorkspace("command");
+    focusAfterLayout(() => workspaceContent.current?.focus());
   };
 
   const openProject = (project: ScriptProject) => {
@@ -577,7 +596,7 @@ export function App() {
     setWorkingDirectory(null);
     setSelectedId(firstCommand?.commandId ?? "ls");
     setMode(nextMode);
-    setCommandView(nextMode === "Guided" ? "guided" : "editor");
+    setCommandView(interfaceModeView(nextMode));
     setExecutionState({ status: "idle" });
     setSessionId(null);
     setWorkspace("command");
@@ -703,13 +722,13 @@ export function App() {
         aria-label={t("app.commandCatalog")}
         tabIndex={-1}
       >
-        <div className="pane-scroll-content">
         {commandContext ? (
         <>
+        <div className="sidebar-chrome">
         <header className="sidebar-heading">
           <div>
-            <p className="eyebrow">{t("app.offlineWorkspace")}</p>
             <h1>{t("app.commandCatalog")}</h1>
+            <p className="eyebrow">{t("app.findCommand")}</p>
           </div>
           <button
             className="drawer-close"
@@ -722,7 +741,7 @@ export function App() {
           </button>
         </header>
         <label className="search-label">
-          <span>{t("app.findCommand")}</span>
+          <span className="visually-hidden">{t("app.findCommand")}</span>
           <span className="search-control">
             <input
               ref={searchInput}
@@ -764,6 +783,8 @@ export function App() {
             )}
           </span>
         </label>
+        </div>
+        <div className="pane-scroll-content catalog-scroll">
         <CatalogList
           state={catalog}
           selectedId={selectedId}
@@ -771,14 +792,16 @@ export function App() {
           onSelect={selectCommand}
         />
         <PathDiscovery state={discovery} onRefresh={() => discoverPath(true)} />
+        </div>
         </>
         ) : (
+          <div className="pane-scroll-content">
           <WorkspaceContextSidebar
             workspace={workspace}
             onFocusWorkspace={() => workspaceContent.current?.focus()}
           />
+          </div>
         )}
-        </div>
         <PaneResizeHandle
           label={t("app.resizeSidebar")}
           orientation="vertical"
@@ -793,6 +816,18 @@ export function App() {
 
       <section className={`workspace${terminalExpanded ? "" : " terminal-collapsed"}`}>
         <header className="workspace-tabs">
+          <button
+            className="panel-toggle sidebar-toggle"
+            ref={sidebarToggle}
+            type="button"
+            aria-label={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
+            aria-controls="contextual-sidebar"
+            aria-expanded={sidebarOpen}
+            title={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
+            onClick={() => sidebarOpen ? closeSidebar() : openSidebar()}
+          >
+            <PanelIcon side="left" />
+          </button>
           <div className="workspace-title">
             <h2
               className="tab active"
@@ -808,18 +843,6 @@ export function App() {
             )}
           </div>
           <div className="workspace-toolbar">
-            <button
-              className="panel-toggle sidebar-toggle"
-              ref={sidebarToggle}
-              type="button"
-              aria-label={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
-              aria-controls="contextual-sidebar"
-              aria-expanded={sidebarOpen}
-              title={sidebarOpen ? t("app.hideSidebar") : t("app.showSidebar")}
-              onClick={() => sidebarOpen ? closeSidebar() : openSidebar()}
-            >
-              <PanelIcon side="left" />
-            </button>
             {workspace === "command" && selected !== null && (
               <div className="command-view-switch" role="tablist" aria-label={t("command.tabsLabel")}>
                 {(["manual", "guided", "editor", "review"] as const).map((view) => (
@@ -849,59 +872,51 @@ export function App() {
                 ))}
               </div>
             )}
-            {workspace === "command" && selected !== null && (
+            {workspace === "command" && selected !== null && commandView === "manual" && (
               <div className="primary-actions" aria-label={t("app.primaryActions")}>
                 <button
+                  className="build-command"
                   type="button"
-                  aria-label={t("app.save")}
-                  title={t("app.save")}
-                  disabled={executionDraft === null}
-                  onClick={() => {
-                    const save = document.querySelector<HTMLButtonElement>("[data-primary-project-save]");
-                    save?.click();
-                  }}
+                  aria-label={t("command.build")}
+                  title={t("command.build")}
+                  onClick={openGuidedFromManual}
                 >
-                  <PrimaryActionIcon name="save" />
-                  <span>{t("app.save")}</span>
+                  <PrimaryActionIcon name="build" />
+                  <span>{t("command.build")}</span>
                 </button>
+              </div>
+            )}
+            {workspace === "command" && selected !== null && (commandView === "guided" || commandView === "editor") && (
+              <div className="primary-actions" aria-label={t("app.primaryActions")}>
                 <button
+                  className="build-command"
                   type="button"
                   aria-label={t("app.reviewRun")}
                   title={t("app.reviewRun")}
-                   disabled={executionDraft === null}
-                   onClick={() => {
-                     setCommandView("review");
-                     focusAfterLayout(() => workspaceContent.current?.focus());
-                   }}
+                  disabled={executionDraft === null}
+                  onClick={() => {
+                    setCommandView("review");
+                    focusAfterLayout(() => workspaceContent.current?.focus());
+                  }}
                 >
                   <PrimaryActionIcon name="review-run" />
                   <span>{t("app.reviewRun")}</span>
                 </button>
-                <button
-                  type="button"
-                  aria-label={t("app.cancelExecution")}
-                  title={t("app.cancelExecution")}
-                   disabled={!terminalRunning}
-                   onClick={cancelExecution}
-                >
-                  <PrimaryActionIcon name="cancel" />
-                  <span>{t("common.cancel")}</span>
-                </button>
               </div>
             )}
-            <button
-              className="panel-toggle inspector-toggle"
-              ref={inspectorToggle}
-              type="button"
-              aria-label={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
-              aria-controls="command-inspector"
-              aria-expanded={inspectorOpen}
-              title={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
-              onClick={() => inspectorOpen ? closeInspector() : openInspector()}
-            >
-              <PanelIcon side="right" />
-            </button>
           </div>
+          <button
+            className="panel-toggle inspector-toggle"
+            ref={inspectorToggle}
+            type="button"
+            aria-label={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
+            aria-controls="command-inspector"
+            aria-expanded={inspectorOpen}
+            title={inspectorOpen ? t("app.hideInspector") : t("app.showInspector")}
+            onClick={() => inspectorOpen ? closeInspector() : openInspector()}
+          >
+            <PanelIcon side="right" />
+          </button>
         </header>
 
         <div
@@ -912,30 +927,22 @@ export function App() {
           aria-labelledby="workspace-heading"
           tabIndex={-1}
         >
+          {workspace === "command" && (
           <SessionContext
             system={system}
             selectedCommand={selected}
             project={loadedProject}
             draft={executionDraft}
           />
-          {(workspace === "home" || (workspace === "command" && commandView !== "review")) && (
-            <WorkflowGuide
-              hasCommand={selected !== null}
-              hasValidatedDraft={executionDraft !== null}
-              reviewReady={reviewReady}
-              hasRun={executionState.status === "exited"}
-            />
           )}
           {workspace === "home" && (
             <div className="home-workspace">
               <CatalogWelcome
                 catalog={catalog}
-                health={health}
-                system={system}
                 onboardingVisible={onboardingVisible}
                 onChooseMode={(nextMode) => {
                   setMode(nextMode);
-                  setCommandView(nextMode === "Guided" ? "guided" : "editor");
+                  setCommandView(interfaceModeView(nextMode));
                   setOnboardingVisible(false);
                   try {
                     window.localStorage.setItem(ONBOARDING_STORAGE_KEY, ONBOARDING_STORAGE_VALUE);
@@ -945,12 +952,14 @@ export function App() {
                   setSidebarOpen(true);
                   focusAfterLayout(() => searchInput.current?.focus());
                 }}
-                onRetryHealth={() => {
-                  setHealth({ status: "checking" });
-                  setSystem({ status: "checking" });
-                  setHealthRefresh((value) => value + 1);
-                }}
               />
+              <WorkflowGuide
+                hasCommand={selected !== null}
+                hasValidatedDraft={executionDraft !== null}
+                reviewReady={reviewReady}
+                hasRun={executionState.status === "exited"}
+              />
+              <div className="home-secondary">
               <section className="home-projects" aria-labelledby="home-projects-title">
                 <div className="home-section-heading">
                   <div>
@@ -997,6 +1006,16 @@ export function App() {
                   }}
                 />
               </section>
+              <HealthCard
+                state={health}
+                system={system}
+                onRetry={() => {
+                  setHealth({ status: "checking" });
+                  setSystem({ status: "checking" });
+                  setHealthRefresh((value) => value + 1);
+                }}
+              />
+              </div>
             </div>
           )}
           {workspace === "history" && (
@@ -1091,20 +1110,13 @@ export function App() {
           {workspace === "command" && selected === null && (
             <CatalogWelcome
               catalog={catalog}
-              health={health}
-              system={system}
               onboardingVisible={false}
               onChooseMode={(nextMode) => {
                 setMode(nextMode);
-                setCommandView(nextMode === "Guided" ? "guided" : "editor");
+                setCommandView(interfaceModeView(nextMode));
                 setWorkspace("home");
                 setSidebarOpen(true);
                 focusAfterLayout(() => searchInput.current?.focus());
-              }}
-              onRetryHealth={() => {
-                setHealth({ status: "checking" });
-                setSystem({ status: "checking" });
-                setHealthRefresh((value) => value + 1);
               }}
             />
           )}
@@ -1137,6 +1149,7 @@ export function App() {
                     setProjectRefresh((value) => value + 1);
                   }}
                   onExecutionDraftChange={setExecutionDraft}
+                  onBuildCommand={openGuidedFromManual}
                 />
               </div>
               {commandView === "review" && (
@@ -1153,7 +1166,7 @@ export function App() {
                   onTypedConfirmationChange={setTypedConfirmation}
                   onRun={runExecution}
                   onCancel={cancelExecution}
-                  onReturnToEditor={() => setCommandView(mode === "Guided" ? "guided" : "editor")}
+                  onReturnToEditor={() => setCommandView(interfaceModeView(mode))}
                 />
               )}
             </section>
@@ -1237,24 +1250,17 @@ export function App() {
   );
 }
 
-function PrimaryActionIcon({ name }: { name: "save" | "review-run" | "cancel" }) {
-  if (name === "save") {
+function PrimaryActionIcon({ name }: { name: "review-run" | "build" }) {
+  if (name === "build") {
     return (
       <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="M3.5 3.5h10l3 3v10h-13zM6 3.5v5h7v-5M6 16.5v-5h8v5" />
-      </svg>
-    );
-  }
-  if (name === "review-run") {
-    return (
-      <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <path d="m3.5 10 2.5 2.5 4-5M12 6.5l5 3.5-5 3.5z" />
+        <path d="M4.5 5.5h11v3.5h-11zM4.5 11h11v3.5h-11zM7 7.25h6M7 12.75h4" />
       </svg>
     );
   }
   return (
     <svg className="primary-action-icon" viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="5" y="5" width="10" height="10" rx="1.5" />
+      <path d="m3.5 10 2.5 2.5 4-5M12 6.5l5 3.5-5 3.5z" />
     </svg>
   );
 }
@@ -1330,27 +1336,30 @@ function PathDiscovery({ state, onRefresh }: {
   const enriched = state.result.executables.filter((entry) => entry.catalogCommandId !== null).length;
   const preview = state.result.executables.slice(0, 40);
   return (
-    <section className="path-discovery">
-      <div className="path-discovery-heading">
+    <details className="path-discovery">
+      <summary className="path-discovery-heading">
         <h2>{t("path.title")}</h2>
+      </summary>
+      <div className="path-discovery-body">
+      <div className="path-discovery-actions">
         <button type="button" onClick={onRefresh}>{t("common.refresh")}</button>
       </div>
-      <span>{plural(
+      <p className="path-discovery-stats">{plural(
         { one: "path.unique.one", other: "path.unique.other" },
         state.result.total,
         { count: formatNumber(state.result.total), enriched: formatNumber(enriched) }
-      )}</span>
-      {state.result.truncated && <small className="warning-text">{t("path.truncated")}</small>}
-      {state.result.shadowedCount > 0 && <small>{plural(
+      )}</p>
+      {state.result.truncated && <p className="warning-text">{t("path.truncated")}</p>}
+      {state.result.shadowedCount > 0 && <p>{plural(
         { one: "path.shadowed.one", other: "path.shadowed.other" },
         state.result.shadowedCount,
         { count: formatNumber(state.result.shadowedCount) }
-      )}</small>}
-      {state.result.skippedUnsafeNames > 0 && <small>{plural(
+      )}</p>}
+      {state.result.skippedUnsafeNames > 0 && <p>{plural(
         { one: "path.unsafe.one", other: "path.unsafe.other" },
         state.result.skippedUnsafeNames,
         { count: formatNumber(state.result.skippedUnsafeNames) }
-      )}</small>}
+      )}</p>}
       <details>
         <summary>{t("path.browse")}</summary>
         <ul>
@@ -1365,7 +1374,8 @@ function PathDiscovery({ state, onRefresh }: {
         )}
       </details>
       <small>{state.result.cached ? t("path.cached") : t("path.scanned")}</small>
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -1468,6 +1478,59 @@ function RecentProjects({ state, onOpen, onRetry }: {
   );
 }
 
+function ManualSectionBody({ body }: { body: string }) {
+  const { t } = useI18n();
+  const blocks = splitManualBlocks(body);
+  if (blocks.length === 1 && blocks[0]?.kind === "text") {
+    return <pre className="manual-section-body">{blocks[0].body}</pre>;
+  }
+  const groups: Array<{ kind: "text"; body: string } | { kind: "entries"; items: Array<{ term: string; description: string }> }> = [];
+  for (const block of blocks) {
+    if (block.kind === "text") {
+      groups.push(block);
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === "entries") {
+      last.items.push(block);
+    } else {
+      groups.push({ kind: "entries", items: [block] });
+    }
+  }
+  return (
+    <div className="manual-section-stack">
+      {groups.map((group, index) => {
+        if (group.kind === "text") {
+          return <pre className="manual-section-body" key={`text-${index}`}>{group.body}</pre>;
+        }
+        return (
+          <div className="option-list" key={`entries-${index}`}>
+            {group.items.map((item, itemIndex) => {
+              const formatted = formatOptionDescription(item.description);
+              return (
+              <div className="option-row" key={`${item.term}:${itemIndex}`}>
+                <code>{item.term}</code>
+                <div className="option-copy">
+                  {formatted.text.length > 0 && <span>{formatted.text}</span>}
+                  {formatted.values.length > 0 && (
+                    <>
+                      <span className="option-values-label">{t("manual.possibleValues")}</span>
+                      <ul className="option-values">
+                        {formatted.values.map((value) => <li key={value}>{value}</li>)}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CommandManual({
   command,
   view,
@@ -1477,7 +1540,8 @@ function CommandManual({
   availableCommands,
   initialProject,
   onProjectSaved,
-  onExecutionDraftChange
+  onExecutionDraftChange,
+  onBuildCommand
 }: {
   command: CommandSpec;
   view: "builder" | "editor" | "manual";
@@ -1488,10 +1552,15 @@ function CommandManual({
   initialProject: ScriptProject | null;
   onProjectSaved: (project: ScriptProject) => void;
   onExecutionDraftChange: (draft: ExecutionDraft | null) => void;
+  onBuildCommand: () => void;
 }) {
   const { t } = useI18n();
   const manual = state.status === "ready" ? state.result.manual : command.manual;
   const source = state.status === "ready" ? state.result.source : "bundled";
+  const guidedCommand = useMemo(() => ({
+    ...command,
+    options: mergeCommandOptions(command.options, optionsFromManual(manual.sections))
+  }), [command, manual]);
   const [draft, setDraft] = useState<{ program: ShellProgram; source: string } | null>(null);
   const [projectId, setProjectId] = useState(() => initialProject?.projectId ?? crypto.randomUUID());
   const [createdAt, setCreatedAt] = useState(() => initialProject?.createdAt ?? new Date().toISOString());
@@ -1545,11 +1614,9 @@ function CommandManual({
       {view === "builder" && (
         <GuidedCommandBuilder
           key={`${command.id}:${initialProject?.projectId ?? "new"}:${initialProject?.updatedAt ?? ""}`}
-          command={command}
+          command={guidedCommand}
           initialProject={initialProject}
           draftProgram={draft?.program ?? null}
-          layout={layout}
-          onLayoutChange={setLayout}
           onDraftChange={(program, draftSource) => setDraft({ program, source: draftSource })}
           onExecutionDraftChange={(program, assessment) => onExecutionDraftChange({ program, assessment })}
         />
@@ -1561,8 +1628,6 @@ function CommandManual({
           availableCommands={availableCommands}
           initialProject={initialProject}
           initialSource={draft?.source}
-          layout={layout}
-          onLayoutChange={setLayout}
           onDraftChange={(draftSource, program) => setDraft({ program, source: draftSource })}
           onExecutionDraftChange={(program, assessment) => onExecutionDraftChange({ program, assessment })}
         />
@@ -1639,8 +1704,14 @@ function CommandManual({
       })}</p>}
       {state.status === "ready" && state.result.truncated && <p className="manual-status">{t("manual.outputTruncated")}</p>}
       <code className="synopsis">{manual.synopsis}</code>
-      {manual.sections.map((section) => (
-        <section key={section.heading}><h3>{section.heading}</h3><p>{section.body}</p></section>
+      {manual.sections.filter((section) => {
+        const heading = section.heading.toLowerCase();
+        return heading !== "name" && heading !== "synopsis";
+      }).map((section) => (
+        <section key={section.heading}>
+          <h3>{section.heading}</h3>
+          <ManualSectionBody body={section.body} />
+        </section>
       ))}
       {command.arguments.length > 0 && (
         <section>
@@ -1656,7 +1727,7 @@ function CommandManual({
         </section>
       )}
       <section>
-        <h3>{t("manual.curatedOptions")}</h3>
+        <h3>{t("manual.catalogOptions")}</h3>
         <div className="option-list">
           {command.options.map((option) => (
             <div className="option-row" key={option.id}>
@@ -1693,6 +1764,10 @@ function CommandManual({
           </div>
         </section>
       )}
+      <p className="manual-next">{t("manual.buildHint")}</p>
+      <button className="manual-build" type="button" onClick={onBuildCommand}>
+        {t("command.build")}
+      </button>
       </div>
       )}
     </article>
@@ -1703,16 +1778,12 @@ function GuidedCommandBuilder({
   command,
   initialProject,
   draftProgram,
-  layout,
-  onLayoutChange,
   onDraftChange,
   onExecutionDraftChange
 }: {
   command: CommandSpec;
   initialProject: ScriptProject | null;
   draftProgram: ShellProgram | null;
-  layout: ProjectLayout;
-  onLayoutChange: (layout: ProjectLayout) => void;
   onDraftChange: (program: ShellProgram, source: string) => void;
   onExecutionDraftChange: (program: ShellProgram, assessment: RiskAssessment) => void;
 }) {
@@ -1824,21 +1895,6 @@ function GuidedCommandBuilder({
     return () => { active = false; };
   }, [draftProgram]);
 
-  const applyVisualProgram = async (program: ShellProgram) => {
-    setVisualError(null);
-    try {
-      const result = await window.commandIde.shell.generate(program);
-      const parsed = await window.commandIde.shell.parse(result.script);
-      if (parsed.preservedRaw) throw new Error(t("error.visualRoundTrip"));
-      const assessment = await window.commandIde.risk.assess(program);
-      setGeneration({ status: "ready", result, assessment, program });
-      onDraftChange(program, result.script);
-      onExecutionDraftChange(program, assessment);
-    } catch (error: unknown) {
-      setVisualError(errorMessage(error, t("error.visualValidation")));
-    }
-  };
-
   const toggleOption = (optionId: string, checked: boolean) => {
     setSelectedOptions((current) => checked
       ? [...current, optionId]
@@ -1850,6 +1906,28 @@ function GuidedCommandBuilder({
       name: command.displayName
     })}>
       <div className="builder-heading"><h3>{t("guided.title")}</h3><span>{t("guided.deterministic")}</span></div>
+      <div className={`generated-preview ${generation.status}`}>
+        {generation.status === "loading" && <span>{t("guided.generating")}</span>}
+        {generation.status === "idle" && <span>{generation.message}</span>}
+        {generation.status === "error" && <span role="alert">{generation.message}</span>}
+        {generation.status === "ready" && (
+          <>
+            <code>$ {generation.result.script}</code>
+            <span className={`risk-badge ${generation.assessment.level}`} title={t("common.reviewHash", {
+              hash: generation.assessment.reviewHash
+            })}>
+              {t("common.risk", { level: generation.assessment.level })} · {
+                generation.result.compacted ? t("guided.flagsCompacted") : t("guided.flagsSeparate")
+              }
+            </span>
+          </>
+        )}
+      </div>
+      {generation.status === "ready" && generation.result.warnings.length > 0 && (
+        <ul className="generation-warnings">
+          {generation.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      )}
       <div className="builder-fields">
         {command.options.map((option) => {
           const checked = selectedOptions.includes(option.id);
@@ -1882,37 +1960,6 @@ function GuidedCommandBuilder({
           </label>
         ))}
       </div>
-      <div className={`generated-preview ${generation.status}`}>
-        {generation.status === "loading" && <span>{t("guided.generating")}</span>}
-        {generation.status === "idle" && <span>{generation.message}</span>}
-        {generation.status === "error" && <span role="alert">{generation.message}</span>}
-        {generation.status === "ready" && (
-          <>
-            <code>$ {generation.result.script}</code>
-            <span className={`risk-badge ${generation.assessment.level}`} title={t("common.reviewHash", {
-              hash: generation.assessment.reviewHash
-            })}>
-              {t("common.risk", { level: generation.assessment.level })} · {
-                generation.result.compacted ? t("guided.flagsCompacted") : t("guided.flagsSeparate")
-              }
-            </span>
-          </>
-        )}
-      </div>
-      {generation.status === "ready" && generation.result.warnings.length > 0 && (
-        <ul className="generation-warnings">
-          {generation.result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-        </ul>
-      )}
-      {generation.status === "ready" && (
-        <ShellProgramCanvas
-          program={draftProgram ?? generation.program}
-          initialLayout={layout}
-          onLayoutChange={onLayoutChange}
-          onProgramChange={(program) => { void applyVisualProgram(program); }}
-          onEditError={setVisualError}
-        />
-      )}
       {visualError !== null && <p className="visual-edit-error error-text" role="alert">{visualError}</p>}
     </section>
   );
@@ -2048,8 +2095,6 @@ function CompactScriptEditor({
   availableCommands,
   initialProject,
   initialSource,
-  layout,
-  onLayoutChange,
   onDraftChange,
   onExecutionDraftChange
 }: {
@@ -2057,8 +2102,6 @@ function CompactScriptEditor({
   availableCommands: CommandSpec[];
   initialProject: ScriptProject | null;
   initialSource: string | undefined;
-  layout: ProjectLayout;
-  onLayoutChange: (layout: ProjectLayout) => void;
   onDraftChange: (source: string, program: ShellProgram) => void;
   onExecutionDraftChange: (program: ShellProgram, assessment: RiskAssessment) => void;
 }) {
@@ -2068,8 +2111,6 @@ function CompactScriptEditor({
     status: "idle",
     message: t("compact.empty")
   });
-  const [visualError, setVisualError] = useState<string | null>(null);
-
   useEffect(() => {
     if (initialSource !== undefined) {
       setSource((current) => current === initialSource ? current : initialSource);
@@ -2118,16 +2159,6 @@ function CompactScriptEditor({
     };
   }, [source]);
 
-  const applyVisualProgram = async (program: ShellProgram) => {
-    setVisualError(null);
-    try {
-      const canonical = await window.commandIde.shell.generate(program);
-      setSource(canonical.script);
-    } catch (error: unknown) {
-      setVisualError(errorMessage(error, t("error.visualValidation")));
-    }
-  };
-
   return (
     <section className="compact-editor" aria-label={t("compact.label")}>
       <div className="builder-heading">
@@ -2173,16 +2204,6 @@ function CompactScriptEditor({
           ))}
         </ul>
       )}
-      {state.status === "ready" && (
-        <ShellProgramCanvas
-          program={state.result.program}
-          initialLayout={layout}
-          onLayoutChange={onLayoutChange}
-          onProgramChange={(program) => { void applyVisualProgram(program); }}
-          onEditError={setVisualError}
-        />
-      )}
-      {visualError !== null && <p className="visual-edit-error error-text" role="alert">{visualError}</p>}
       {state.status === "ready" && state.canonical.script !== source && (
         <div className="canonical-preview">
           <span>{t("compact.canonical")}</span>
@@ -2815,43 +2836,38 @@ function SessionContext({ system, selectedCommand, project, draft }: {
   );
 }
 
-function CatalogWelcome({ catalog, health, system, onboardingVisible, onChooseMode, onRetryHealth }: {
+function CatalogWelcome({ catalog, onboardingVisible, onChooseMode }: {
   catalog: CatalogState;
-  health: HealthState;
-  system: SystemState;
   onboardingVisible: boolean;
   onChooseMode: (mode: "Guided" | "Compact") => void;
-  onRetryHealth: () => void;
 }) {
   const { t } = useI18n();
+  const heading = catalog.status === "loading"
+    ? t("welcome.loadingCatalog")
+    : onboardingVisible
+      ? t("onboarding.title")
+      : t("welcome.chooseCommand");
   return (
-    <>
-      <p className="eyebrow">{t("welcome.eyebrow")}</p>
-      <h2>{catalog.status === "loading" ? t("welcome.loadingCatalog") : t("welcome.chooseCommand")}</h2>
-      <p className="lede">{t("welcome.description")}</p>
+    <section className="home-hero">
+      <p className="eyebrow">{onboardingVisible ? t("onboarding.eyebrow") : t("welcome.eyebrow")}</p>
+      <h2 id={onboardingVisible ? "onboarding-title" : undefined}>{heading}</h2>
+      <p className="lede">{onboardingVisible ? t("onboarding.description") : t("welcome.description")}</p>
       {onboardingVisible && (
         <section className="onboarding-panel" aria-labelledby="onboarding-title">
-          <p className="eyebrow">{t("onboarding.eyebrow")}</p>
-          <h3 id="onboarding-title">{t("onboarding.title")}</h3>
-          <p>{t("onboarding.description")}</p>
-          <ol>
-            <li>{t("onboarding.step.search")}</li>
-            <li>{t("onboarding.step.build")}</li>
-            <li>{t("onboarding.step.review")}</li>
-          </ol>
-          <p className="onboarding-privacy">{t("onboarding.privacy")}</p>
           <div className="onboarding-actions">
             <button type="button" autoFocus onClick={() => onChooseMode("Guided")}>
-              {t("onboarding.guided")}
+              <strong>{t("onboarding.guided")}</strong>
+              <small>{t("mode.guidedDescription")}</small>
             </button>
             <button type="button" onClick={() => onChooseMode("Compact")}>
-              {t("onboarding.compact")}
+              <strong>{t("onboarding.compact")}</strong>
+              <small>{t("mode.compactDescription")}</small>
             </button>
           </div>
+          <p className="onboarding-privacy">{t("onboarding.privacy")}</p>
         </section>
       )}
-      <HealthCard state={health} system={system} onRetry={onRetryHealth} />
-    </>
+    </section>
   );
 }
 

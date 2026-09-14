@@ -27,16 +27,24 @@ final class ManualParserTest {
                 DESCRIPTION
                     \u001B[31mDescribe\u001B[0m the command.
 
+                OPTIONS
+                    -h, --help
+                        Show a short usage summary.
+
                 SEE ALSO
                     other(1)
+
+                DIAGNOSTICS
+                    Returns zero on success.
                 """;
 
         CatalogCommand.CommandManual manual = ManualParser.parseMan(raw, fallback);
 
         assertEquals("sample [OPTION]", manual.synopsis());
-        assertEquals(List.of("Synopsis", "Description", "See Also"),
+        assertEquals(List.of("Synopsis", "Description", "Options", "See Also", "Diagnostics"),
                 manual.sections().stream().map(CatalogCommand.ManualSection::heading).toList());
         assertFalse(manual.sections().get(1).body().contains("\u001B"));
+        assertTrue(manual.sections().get(2).body().contains("-h, --help"));
     }
 
     @Test

@@ -330,6 +330,20 @@ public final class BashGenerator {
             CatalogCommand.CommandOption option = selected == null
                     ? null
                     : optionMetadata.get(selected.optionId());
+            if (option == null && selected != null && isLiteralFlagSpelling(selected.spelling())) {
+                boolean extraHasValue = selected.value() != null;
+                boolean extraHasValueKind = selected.valueKind() != null;
+                if (extraHasValue != extraHasValueKind) {
+                    throw new IllegalArgumentException("Option value mismatch: " + selected.optionId());
+                }
+                optionTokens.add(selected.spelling());
+                if (extraHasValue) {
+                    validateValue(selected.value(), selected.valueKind());
+                    optionTokens.add(renderValue(selected.value(), selected.valueKind()));
+                }
+                selectedIds.add(selected.optionId());
+                continue;
+            }
             if (option == null || !option.flags().contains(selected.spelling())) {
                 throw new IllegalArgumentException("Unknown option selection");
             }
@@ -358,6 +372,7 @@ public final class BashGenerator {
         }
         for (String selectedId : selectedIds) {
             CatalogCommand.CommandOption option = optionMetadata.get(selectedId);
+            if (option == null) continue;
             if (option.conflictsWith().stream().anyMatch(selectedIds::contains)) {
                 throw new IllegalArgumentException("Conflicting options selected");
             }
@@ -455,6 +470,10 @@ public final class BashGenerator {
 
     private static boolean isSingleShortFlag(String value) {
         return value != null && value.length() == 2 && value.charAt(0) == '-' && value.charAt(1) != '-';
+    }
+
+    static boolean isLiteralFlagSpelling(String spelling) {
+        return spelling != null && spelling.matches("-(-)?[A-Za-z0-9][\\w-]*");
     }
 
     private static boolean isBooleanOperand(ShellProgram.ShellNode node) {

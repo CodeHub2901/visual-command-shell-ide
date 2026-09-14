@@ -7,15 +7,11 @@ import dev.commandide.worker.catalog.CatalogCommand;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 final class ManualParser {
     private static final Pattern ANSI = Pattern.compile("\\u001B\\[[0-?]*[ -/]*[@-~]");
-    private static final Pattern HEADING = Pattern.compile("[A-Z][A-Z0-9 ._-]{1,60}");
-    private static final Set<String> SEMANTIC_HEADINGS = Set.of(
-            "NAME", "SYNOPSIS", "DESCRIPTION", "OPTIONS", "EXAMPLES",
-            "EXIT STATUS", "EXIT CODES", "FILES", "SEE ALSO");
+    private static final Pattern HEADING = Pattern.compile("[A-Z][A-Z0-9 ,._-]{1,78}");
 
     private ManualParser() {}
 
@@ -29,8 +25,9 @@ final class ManualParser {
         for (String line : text.split("\\n", -1)) {
             String trimmed = line.strip();
             boolean semanticHeading = line.equals(line.stripLeading())
-                    && HEADING.matcher(trimmed).matches()
-                    && SEMANTIC_HEADINGS.contains(trimmed);
+                    && !trimmed.isBlank()
+                    && trimmed.length() <= 80
+                    && HEADING.matcher(trimmed).matches();
             if (semanticHeading) {
                 flush(sections, currentHeading, currentBody);
                 currentHeading = titleCase(trimmed);
@@ -87,10 +84,31 @@ final class ManualParser {
             String heading,
             StringBuilder body) {
         if (heading == null) return;
-        String normalized = body.toString().strip().replaceAll("\\n{3,}", "\\n\\n");
+        String normalized = dedent(body.toString()).replaceAll("\\n{3,}", "\\n\\n");
         if (!normalized.isBlank()) {
             sections.add(new CatalogCommand.ManualSection(heading, limit(normalized, 200_000)));
         }
+    }
+
+    private static String dedent(String value) {
+        String[] lines = value.split("\n", -1);
+        int minimum = Integer.MAX_VALUE;
+        for (String line : lines) {
+            if (line.isBlank()) continue;
+            int indent = line.length() - line.stripLeading().length();
+            minimum = Math.min(minimum, indent);
+        }
+        if (minimum == Integer.MAX_VALUE) return value.strip();
+        StringBuilder result = new StringBuilder();
+        for (int index = 0; index < lines.length; index++) {
+            String line = lines[index];
+            if (!line.isBlank() && line.length() >= minimum) {
+                line = line.substring(minimum);
+            }
+            if (index > 0) result.append('\n');
+            result.append(line.stripTrailing());
+        }
+        return result.toString().strip();
     }
 
     private static String titleCase(String value) {

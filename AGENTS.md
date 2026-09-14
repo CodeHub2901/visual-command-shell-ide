@@ -112,6 +112,16 @@ pnpm start
 - Editing Java without rebuilding worker (`pnpm build:worker` or `pnpm build`)
 - Modifying protocol schemas without regenerating both TS and Java bindings (contracts build handles TS; Java uses Jackson on same schemas)
 - Adding deps without Apache-2.0 compatibility and third-party notice updates
+- Unpackaged `pnpm start` on VMware GNOME Wayland can leave the window invisible;
+  missing `java` on PATH leaves the catalog empty. See Linux troubleshooting in
+  `docs/release/0.1.0-beta.md`. Local diagnosis launch:
+
+  ```bash
+  pnpm build:contracts && pnpm build:desktop
+  DISPLAY=:0 GDK_BACKEND=x11 ELECTRON_OZONE_PLATFORM_HINT=x11 \
+  CMD_IDE_JAVA="$(pwd)/apps/worker/target/runtime/bin/java" \
+  pnpm --filter @cmd-ide/desktop exec electron . --no-sandbox --ozone-platform=x11
+  ```
 
 ## Key docs for context
 

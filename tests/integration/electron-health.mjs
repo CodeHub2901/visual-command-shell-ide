@@ -94,7 +94,7 @@ assert.match(applicationOutput, /parsed \d+ shell nodes/i);
 assert.match(applicationOutput, /low risk hash [a-f0-9]{64}/i);
 assert.match(applicationOutput, /copied \d+ command characters to clipboard/i);
 assert.match(applicationOutput, /exact generated command clipboard action validated/i);
-assert.match(applicationOutput, /semantic React Flow mutation validated/i);
+assert.match(applicationOutput, /catalog example insertion validated/i);
 assert.match(applicationOutput, /bundled Bash Language Server session validated/i);
 assert.match(applicationOutput, /local xterm and redacted History workspace validated/i);
 assert.match(applicationOutput, /structured bookmark persistence validated/i);
@@ -105,7 +105,7 @@ assert.match(applicationOutput, /passive local tooling detection validated/i);
 assert.match(applicationOutput, /persisted System\/Light\/Dark glass appearance validated/i);
 assert.match(applicationOutput, /keyboard shortcuts and workspace focus validated/i);
 assert.match(applicationOutput, /collapsible terminal layout and session state validated/i);
-assert.match(applicationOutput, /React Flow and local Monaco editors validated/i);
+assert.match(applicationOutput, /Guided form and local Monaco editors validated/i);
 assert.match(
   applicationOutput,
   /Interactive React Flow large-canvas: render \d+(?:\.\d+)? ms, zoom p95 \d+(?:\.\d+)? ms \(1,000 nodes\)/i

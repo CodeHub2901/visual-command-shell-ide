@@ -692,6 +692,19 @@ public final class BashParser {
                 }
                 continue;
             }
+            if (option == null && BashGenerator.isLiteralFlagSpelling(spelling)) {
+                if (optionValue != null && optionValueKind == null) {
+                    throw new UnsupportedSyntax("Unknown option: " + value);
+                }
+                String extraId = spelling.replaceFirst("^--?", "");
+                if (!selected.add(extraId) && extraId.length() > 0) {
+                    throw new UnsupportedSyntax("Repeated non-repeatable option: " + spelling);
+                }
+                selected.add(extraId);
+                selections.add(new ShellProgram.OptionSelection(
+                        extraId, spelling, optionValue, optionValueKind));
+                continue;
+            }
             if (option == null) throw new UnsupportedSyntax("Unknown option: " + value);
             if (option.takesValue() && optionValue == null) {
                 if (++index >= tokens.size() || tokens.get(index).operator()) {

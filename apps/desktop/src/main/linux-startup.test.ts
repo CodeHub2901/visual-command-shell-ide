@@ -19,8 +19,21 @@ describe("Linux desktop startup policy", () => {
       desktop: "GNOME",
       virtualization: "none",
       graphicsMode: "hardware",
+      nativeTransparency: false,
       appliedWorkarounds: ["wayland-ozone-auto"]
     });
+  });
+
+  it("keeps native wallpaper transparency opt-in", () => {
+    expect(createDesktopStartupPlan({
+      platform: "linux",
+      environment: { DISPLAY: ":0" }
+    }).profile.nativeTransparency).toBe(false);
+
+    expect(createDesktopStartupPlan({
+      platform: "linux",
+      environment: { DISPLAY: ":0", CMD_IDE_NATIVE_TRANSPARENCY: "1" }
+    }).profile.nativeTransparency).toBe(true);
   });
 
   it("uses software rendering by default on VMware Linux guests", () => {

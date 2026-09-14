@@ -23,7 +23,7 @@ export function desktopLayoutBand(width: number): DesktopLayoutBand {
 }
 
 export const DEFAULT_PANE_SIZES: PaneSizes = Object.freeze({
-  sidebar: 272,
+  sidebar: 252,
   inspector: 288,
   terminal: 300
 });

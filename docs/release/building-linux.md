@@ -30,7 +30,10 @@ isolation, sandboxed web preferences, disabled Node integration, and the local
 content-security policy.
 
 On Wayland, Command IDE requests Electron's automatic Ozone backend selection.
-X11 sessions retain Electron's normal defaults. VMware Linux guests use
+X11 sessions retain Electron's normal defaults. VMware GNOME Wayland guests can
+leave an unpackaged window unmapped (process running, renderer mounted, no
+taskbar entry); force X11 with `--ozone-platform=x11` as documented in
+[0.1.0-beta.md](0.1.0-beta.md#linux-troubleshooting). VMware Linux guests use
 software rendering by default to avoid common virtual-GPU startup failures.
 Advanced users can set `CMD_IDE_HARDWARE_ACCELERATION=1` before launch to test
 hardware acceleration in a VMware guest, or `CMD_IDE_DISABLE_GPU=1` to request
